@@ -401,6 +401,7 @@
     };
 
     const msalInstance = new msal.PublicClientApplication(msalConfig);
+    let msalReady = false;
 
     /* ========================================================
      *  DOM 要素
@@ -478,6 +479,10 @@
     }
 
     signInButton.addEventListener("click", async () => {
+      if (!msalReady) {
+        console.warn("MSAL 初期化待ち");
+        return;
+      }
       try {
         const res = await msalInstance.loginPopup(tokenRequest);
         showSignedIn(res.account);
@@ -548,15 +553,20 @@
     }
 
     /* ========================================================
-     *  ページ起動時: セッションに残った認証を確認
+     *  ページ起動時: MSAL 初期化 → セッション復元
      * ======================================================== */
-    msalInstance.handleRedirectPromise().then(function () {
-      const accounts = msalInstance.getAllAccounts();
+    msalInstance.initialize().then(function () {
+      msalReady = true;
+      return msalInstance.handleRedirectPromise();
+    }).then(function () {
+      var accounts = msalInstance.getAllAccounts();
       if (accounts.length > 0) {
         showSignedIn(accounts[0]);
         loadLedgerFromOneDrive();
       }
-    }).catch(console.error);
+    }).catch(function (err) {
+      console.error("MSAL 初期化エラー:", err);
+    });
 
     /* ========================================================
      *  ビーコン検索・CSV 出力（前バージョンと同等）
