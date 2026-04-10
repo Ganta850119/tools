@@ -252,6 +252,67 @@
       margin: 0;
     }
 
+    .step-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--accent-strong);
+    }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .search-bar input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .search-bar button {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .csv-section {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.5);
+      display: grid;
+      gap: 16px;
+    }
+
+    .csv-output-btn {
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+    }
+
+    .divider {
+      border: 0;
+      border-top: 1px solid var(--line);
+      margin: 4px 0;
+    }
+
     .hidden {
       display: none;
     }
@@ -336,7 +397,7 @@
   <div class="container">
     <div class="card">
       <div class="header">
-        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.3.0</span></h1>
+        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.4.0</span></h1>
         <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
       </div>
 
@@ -361,29 +422,20 @@
 
       <!-- メインフォーム（サインイン＋台帳読み込み後に表示） -->
       <div id="mainForm" class="body hidden">
-        <div class="grid">
-          <div class="field">
-            <label for="staffCode">職員コード</label>
-            <input id="staffCode" type="text" inputmode="numeric" maxlength="6" placeholder="6桁の半角数字">
-            <div class="helper">半角数字のみ入力可。入力後に6桁ゼロ埋めします。</div>
-          </div>
-          <div class="field">
-            <label for="beaconName">ビーコン名</label>
-            <input id="beaconName" type="text" placeholder="ビーコン名を入力">
-            <div class="helper">検索時は必須です。</div>
-          </div>
-        </div>
 
-        <div class="actions">
+        <!-- STEP 1: ビーコン検索 -->
+        <div class="step-label"><span class="step-num">1</span>ビーコン検索</div>
+        <div class="search-bar">
+          <input id="beaconName" type="text" placeholder="ビーコン名を入力">
           <button id="searchButton" class="primary" type="button">検索</button>
-          <button id="csvButton" class="secondary" type="button" disabled>CSV出力</button>
         </div>
 
         <div id="message" class="message" aria-live="polite"></div>
 
+        <!-- 検索結果 -->
         <div id="resultSection" class="result hidden">
           <div class="result-row">
-            <span>検索結果</span>
+            <span>MACアドレス</span>
             <span id="macAddress" class="pill"></span>
           </div>
 
@@ -399,27 +451,42 @@
               <dt>ID</dt><dd id="ownerId"></dd>
             </dl>
           </div>
+        </div>
 
-          <fieldset>
-            <div class="legend">紐づけタイミング</div>
-            <div class="radios">
-              <label class="radio" for="linkNow">
-                <input id="linkNow" type="radio" name="linkMode" value="now" checked>
-                <span>いますぐ紐づける</span>
-              </label>
-              <label class="radio" for="linkFuture">
-                <input id="linkFuture" type="radio" name="linkMode" value="future">
-                <span>未来日で紐づける</span>
-              </label>
+        <!-- STEP 2: CSV出力設定（検索成功後に表示） -->
+        <div id="csvSection" class="csv-section hidden">
+          <div class="step-label"><span class="step-num">2</span>CSV出力設定</div>
+
+          <div class="grid">
+            <div class="field">
+              <label for="staffCode">職員コード</label>
+              <input id="staffCode" type="text" inputmode="numeric" maxlength="6" placeholder="6桁の半角数字">
+              <div class="helper">半角数字のみ入力可。6桁ゼロ埋めします。</div>
             </div>
-          </fieldset>
+            <fieldset>
+              <div class="legend">紐づけタイミング</div>
+              <div class="radios">
+                <label class="radio" for="linkNow">
+                  <input id="linkNow" type="radio" name="linkMode" value="now" checked>
+                  <span>いますぐ紐づける</span>
+                </label>
+                <label class="radio" for="linkFuture">
+                  <input id="linkFuture" type="radio" name="linkMode" value="future">
+                  <span>未来日で紐づける</span>
+                </label>
+              </div>
+            </fieldset>
+          </div>
 
           <div id="futureDateField" class="field hidden">
             <label for="reservationDate">次回紐付け予約日</label>
             <input id="reservationDate" type="date">
             <div class="helper">現在日以降の日付のみ指定できます。</div>
           </div>
+
+          <button id="csvButton" class="primary csv-output-btn" type="button">CSV出力</button>
         </div>
+
       </div>
     </div>
   </div>
@@ -670,6 +737,7 @@
       macAddressSpan.textContent = "";
       resultSection.classList.add("hidden");
       document.getElementById("ownerInfo").classList.add("hidden");
+      document.getElementById("csvSection").classList.add("hidden");
       csvButton.disabled = true;
       linkNow.checked = true;
       updateFutureDateVisibility();
@@ -780,6 +848,7 @@
       state.macAddress = result.mac;
       macAddressSpan.textContent = result.mac;
       resultSection.classList.remove("hidden");
+      document.getElementById("csvSection").classList.remove("hidden");
       csvButton.disabled = false;
       updateFutureDateVisibility();
 
