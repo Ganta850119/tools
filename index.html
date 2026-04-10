@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Entra ID SPA サインイン</title>
-  <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js" integrity="sha384-QyE/2P2MxuBPTC4QgfrOzyYI8cTQ4/EJW0Y90sYXQMG9N8Qig/SlRzI/oSy1M9n5" crossorigin="anonymous"></script>
+  <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js" crossorigin="anonymous" onerror="window.__msalLoadFailed = true;"></script>
   <style>
     :root {
       color-scheme: light;
@@ -315,21 +315,47 @@
     const accountUsernameEl = document.getElementById("accountUsername");
     const tenantDisplayEl = document.getElementById("tenantDisplay");
 
-    const msalInstance = new msal.PublicClientApplication(msalConfig);
+    let msalInstance = null;
+
+    function debugLog(step, detail, extra) {
+      const timestamp = new Date().toISOString();
+      if (typeof extra === "undefined") {
+        console.log(`[auth][${timestamp}] ${step}: ${detail}`);
+        return;
+      }
+
+      console.log(`[auth][${timestamp}] ${step}: ${detail}`, extra);
+    }
 
     loginBtn.addEventListener("click", signIn);
     logoutBtn.addEventListener("click", signOut);
 
     function setBusy(isBusy) {
+      debugLog("ui", `setBusy(${isBusy})`);
       loginBtn.disabled = isBusy;
       logoutBtn.disabled = isBusy;
     }
 
     function setStatus(message) {
+      debugLog("ui", `status=${message}`);
       statusEl.textContent = message;
     }
 
+    function withTimeout(promise, timeoutMs, timeoutMessage) {
+      debugLog("async", `timeout guard start: ${timeoutMs}ms`, { timeoutMessage });
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          window.setTimeout(() => {
+            debugLog("async", "timeout reached", { timeoutMs, timeoutMessage });
+            reject(new Error(timeoutMessage));
+          }, timeoutMs);
+        }),
+      ]);
+    }
+
     function showAnonymous() {
+      debugLog("auth", "render anonymous view");
       anonymousView.classList.remove("hidden");
       authenticatedView.classList.add("hidden");
       logoutBtn.classList.add("hidden");
@@ -339,6 +365,12 @@
 
     function showAuthenticated(account) {
       const claims = account.idTokenClaims || {};
+      debugLog("auth", "render authenticated view", {
+        username: account.username || null,
+        name: account.name || null,
+        tenantId: claims.tid || null,
+        preferredUsername: claims.preferred_username || null,
+      });
       userNameEl.textContent = claims.name || account.name || "-";
       preferredUsernameEl.textContent = claims.preferred_username || "-";
       accountUsernameEl.textContent = account.username || "-";
@@ -352,70 +384,171 @@
     }
 
     function getCurrentAccount() {
+      if (!msalInstance) {
+        debugLog("auth", "getCurrentAccount skipped because msalInstance is null");
+        return null;
+      }
+
       const active = msalInstance.getActiveAccount();
       if (active) {
+        debugLog("auth", "active account found", {
+          username: active.username || null,
+          homeAccountId: active.homeAccountId || null,
+        });
         return active;
       }
 
       const accounts = msalInstance.getAllAccounts();
+      debugLog("auth", `cached accounts count=${accounts.length}`);
       if (accounts.length > 0) {
         msalInstance.setActiveAccount(accounts[0]);
+        debugLog("auth", "active account restored from cache", {
+          username: accounts[0].username || null,
+          homeAccountId: accounts[0].homeAccountId || null,
+        });
         return accounts[0];
       }
 
+      debugLog("auth", "no signed-in account found in cache");
       return null;
     }
 
     async function initializeAuth() {
+      debugLog("init", "initializeAuth started", {
+        href: window.location.href,
+        protocol: window.location.protocol,
+        userAgent: window.navigator.userAgent,
+      });
       setBusy(true);
 
       try {
-        await msalInstance.initialize();
-        const redirectResult = await msalInstance.handleRedirectPromise();
+        if (window.location.protocol === "file:") {
+          debugLog("init", "blocked because page is loaded with file protocol");
+          throw new Error("file:// では実行できません。https://localhost や GitHub Pages などの HTTP/HTTPS 配信で開いてください。");
+        }
+
+        if (window.__msalLoadFailed || !window.msal || !window.msal.PublicClientApplication) {
+          debugLog("init", "MSAL library unavailable", {
+            msalExists: !!window.msal,
+            loadFailedFlag: !!window.__msalLoadFailed,
+          });
+          throw new Error("MSAL.js の読み込みに失敗しました。CDN への接続可否を確認してください。");
+        }
+
+        debugLog("init", "creating PublicClientApplication", {
+          clientId: authConfig.clientId,
+          authority: `https://login.microsoftonline.com/${authConfig.tenantId}`,
+          redirectUri: authConfig.redirectUri,
+        });
+        msalInstance = new window.msal.PublicClientApplication(msalConfig);
+
+        debugLog("init", "calling msalInstance.initialize()");
+        await withTimeout(
+          msalInstance.initialize(),
+          8000,
+          "MSAL の初期化がタイムアウトしました。ネットワーク、ブラウザ拡張、または認証設定を確認してください。"
+        );
+        debugLog("init", "msalInstance.initialize() completed");
+
+        debugLog("init", "calling handleRedirectPromise()", {
+          hash: window.location.hash,
+          search: window.location.search,
+        });
+        const redirectResult = await withTimeout(
+          msalInstance.handleRedirectPromise(),
+          8000,
+          "サインイン状態の確認がタイムアウトしました。redirectUri とブラウザ設定を確認してください。"
+        );
+
+        debugLog("init", "handleRedirectPromise() resolved", {
+          hasResult: !!redirectResult,
+          account: redirectResult && redirectResult.account ? {
+            username: redirectResult.account.username || null,
+            homeAccountId: redirectResult.account.homeAccountId || null,
+          } : null,
+        });
 
         if (redirectResult && redirectResult.account) {
           msalInstance.setActiveAccount(redirectResult.account);
+          debugLog("init", "active account set from redirect result");
         }
 
         const currentAccount = getCurrentAccount();
 
         if (currentAccount) {
+          debugLog("init", "authentication state resolved as signed-in");
           showAuthenticated(currentAccount);
         } else {
+          debugLog("init", "authentication state resolved as signed-out");
           showAnonymous();
         }
       } catch (error) {
         console.error(error);
+        debugLog("init", "initializeAuth failed", {
+          name: error && error.name ? error.name : null,
+          message: error && error.message ? error.message : String(error),
+          stack: error && error.stack ? error.stack : null,
+        });
         showAnonymous();
         setStatus(`認証初期化に失敗しました: ${error.message || error}`);
       } finally {
+        debugLog("init", "initializeAuth finished");
         setBusy(false);
       }
     }
 
     function signIn() {
+      if (!msalInstance) {
+        debugLog("event", "signIn blocked because msalInstance is null");
+        setStatus("認証ライブラリが未初期化です。ページを再読み込みしてください。");
+        return;
+      }
+
+      debugLog("event", "signIn clicked", loginRequest);
       setBusy(true);
       setStatus("サインイン画面へ移動します...");
       msalInstance.loginRedirect(loginRequest).catch((error) => {
         console.error(error);
+        debugLog("event", "loginRedirect failed", {
+          name: error && error.name ? error.name : null,
+          message: error && error.message ? error.message : String(error),
+        });
         setBusy(false);
         setStatus(`サインイン開始に失敗しました: ${error.message || error}`);
       });
     }
 
     function signOut() {
+      if (!msalInstance) {
+        debugLog("event", "signOut blocked because msalInstance is null");
+        setStatus("認証ライブラリが未初期化です。ページを再読み込みしてください。");
+        return;
+      }
+
       const account = getCurrentAccount();
+      debugLog("event", "signOut clicked", {
+        username: account && account.username ? account.username : null,
+        homeAccountId: account && account.homeAccountId ? account.homeAccountId : null,
+      });
       setBusy(true);
       setStatus("サインアウトしています...");
       msalInstance.logoutRedirect({
         account,
       }).catch((error) => {
         console.error(error);
+        debugLog("event", "logoutRedirect failed", {
+          name: error && error.name ? error.name : null,
+          message: error && error.message ? error.message : String(error),
+        });
         setBusy(false);
         setStatus(`サインアウトに失敗しました: ${error.message || error}`);
       });
     }
 
+    debugLog("boot", "script loaded", {
+      href: window.location.href,
+      readyState: document.readyState,
+    });
     initializeAuth();
   </script>
 </body>
