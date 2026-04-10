@@ -221,6 +221,37 @@
       color: var(--ok);
     }
 
+    .owner-info {
+      border: 1px solid rgba(216, 204, 184, 0.9);
+      border-radius: 14px;
+      padding: 14px 16px;
+      background: rgba(255, 240, 220, 0.55);
+      font-size: 0.92rem;
+      line-height: 1.7;
+    }
+
+    .owner-info .owner-label {
+      font-weight: 700;
+      color: var(--error);
+      margin-bottom: 6px;
+    }
+
+    .owner-info .owner-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 2px 12px;
+    }
+
+    .owner-info .owner-grid dt {
+      font-weight: 700;
+      color: var(--sub);
+      white-space: nowrap;
+    }
+
+    .owner-info .owner-grid dd {
+      margin: 0;
+    }
+
     .hidden {
       display: none;
     }
@@ -305,7 +336,7 @@
   <div class="container">
     <div class="card">
       <div class="header">
-        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.2.0</span></h1>
+        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.3.0</span></h1>
         <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
       </div>
 
@@ -354,6 +385,19 @@
           <div class="result-row">
             <span>検索結果</span>
             <span id="macAddress" class="pill"></span>
+          </div>
+
+          <div id="ownerInfo" class="owner-info hidden">
+            <div class="owner-label">⚠ このビーコンは現在以下の方に紐づいています</div>
+            <dl class="owner-grid">
+              <dt>職員番号</dt><dd id="ownerStaffNo"></dd>
+              <dt>所属</dt><dd id="ownerDept"></dd>
+              <dt>姓</dt><dd id="ownerLastName"></dd>
+              <dt>名</dt><dd id="ownerFirstName"></dd>
+              <dt>せい</dt><dd id="ownerLastKana"></dd>
+              <dt>めい</dt><dd id="ownerFirstKana"></dd>
+              <dt>ID</dt><dd id="ownerId"></dd>
+            </dl>
           </div>
 
           <fieldset>
@@ -625,6 +669,7 @@
       state.macAddress = "";
       macAddressSpan.textContent = "";
       resultSection.classList.add("hidden");
+      document.getElementById("ownerInfo").classList.add("hidden");
       csvButton.disabled = true;
       linkNow.checked = true;
       updateFutureDateVisibility();
@@ -643,7 +688,7 @@
       return text;
     }
 
-    function searchMacAddress(workbook, beaconName) {
+    function searchBeaconInfo(workbook, beaconName) {
       console.log("[SEARCH] ビーコン名=\"" + beaconName + "\" で検索開始");
       for (var i = 0; i < workbook.SheetNames.length; i++) {
         var sheetName = workbook.SheetNames[i];
@@ -653,16 +698,29 @@
         );
         console.log("[SEARCH] シート \"" + sheetName + "\": " + rows.length + " 行");
         for (var r = 0; r < rows.length; r++) {
-          var mgmtNum = String(rows[r][4] == null ? "" : rows[r][4]).trim();
-          var mac = String(rows[r][5] == null ? "" : rows[r][5]).trim();
+          var row = rows[r];
+          var mgmtNum = String(row[4] == null ? "" : row[4]).trim();
+          var mac = String(row[5] == null ? "" : row[5]).trim();
           if (mgmtNum === beaconName && mac) {
             console.log("[SEARCH] ヒット: 行" + (r + 1) + ", E=\"" + mgmtNum + "\", F=\"" + mac + "\"");
-            return mac;
+            var cell = function(idx) { return String(row[idx] == null ? "" : row[idx]).trim(); };
+            var owner = {
+              staffNo:   cell(6),
+              dept:      cell(7),
+              lastName:  cell(8),
+              firstName: cell(9),
+              lastKana:  cell(10),
+              firstKana: cell(11),
+              id:        cell(12)
+            };
+            var hasOwner = owner.staffNo || owner.lastName || owner.id;
+            console.log("[SEARCH] 紐づき情報:", hasOwner ? JSON.stringify(owner) : "なし");
+            return { mac: mac, owner: hasOwner ? owner : null };
           }
         }
       }
       console.log("[SEARCH] 該当なし");
-      return "";
+      return null;
     }
 
     function buildCsvRow() {
@@ -711,20 +769,35 @@
       setMessage("検索中です…", "");
       csvButton.disabled = true;
 
-      var foundMac = searchMacAddress(cachedWorkbook, beaconName);
-      if (!foundMac) {
+      var result = searchBeaconInfo(cachedWorkbook, beaconName);
+      if (!result) {
         resetResult();
         setMessage("該当するMACアドレスは見つかりませんでした。", "error");
         return;
       }
 
       state.beaconName = beaconName;
-      state.macAddress = foundMac;
-      macAddressSpan.textContent = foundMac;
+      state.macAddress = result.mac;
+      macAddressSpan.textContent = result.mac;
       resultSection.classList.remove("hidden");
       csvButton.disabled = false;
       updateFutureDateVisibility();
-      setMessage("MACアドレスを取得しました。", "success");
+
+      var ownerInfoEl = document.getElementById("ownerInfo");
+      if (result.owner) {
+        document.getElementById("ownerStaffNo").textContent = result.owner.staffNo;
+        document.getElementById("ownerDept").textContent = result.owner.dept;
+        document.getElementById("ownerLastName").textContent = result.owner.lastName;
+        document.getElementById("ownerFirstName").textContent = result.owner.firstName;
+        document.getElementById("ownerLastKana").textContent = result.owner.lastKana;
+        document.getElementById("ownerFirstKana").textContent = result.owner.firstKana;
+        document.getElementById("ownerId").textContent = result.owner.id;
+        ownerInfoEl.classList.remove("hidden");
+        setMessage("MACアドレスを取得しました。（現在紐づき中）", "success");
+      } else {
+        ownerInfoEl.classList.add("hidden");
+        setMessage("MACアドレスを取得しました。（未紐づけ）", "success");
+      }
     });
 
     csvButton.addEventListener("click", function () {
