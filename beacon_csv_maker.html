@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ビーコン登録CSVメーカー</title>
+  <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3efe5;
+      --panel: #fffaf2;
+      --line: #d8ccb8;
+      --text: #2f261d;
+      --sub: #736556;
+      --accent: #0f766e;
+      --accent-strong: #115e59;
+      --error: #b42318;
+      --ok: #166534;
+      --shadow: 0 20px 45px rgba(74, 58, 38, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Yu Gothic UI", "Meiryo", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.18), transparent 24%),
+        linear-gradient(180deg, #f7f3eb 0%, var(--bg) 100%);
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    .container {
+      max-width: 840px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: rgba(255, 250, 242, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(216, 204, 184, 0.9);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 28px 28px 12px;
+      border-bottom: 1px solid rgba(216, 204, 184, 0.8);
+      background: linear-gradient(135deg, rgba(15, 118, 110, 0.1), rgba(255, 255, 255, 0));
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.7rem, 3vw, 2.3rem);
+      letter-spacing: 0.04em;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--sub);
+      line-height: 1.6;
+    }
+
+    .body {
+      padding: 28px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    label,
+    .legend {
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    input[type="text"],
+    input[type="date"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px 14px;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    input:focus {
+      outline: 2px solid rgba(15, 118, 110, 0.2);
+      border-color: var(--accent);
+    }
+
+    .helper {
+      color: var(--sub);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.16s ease, opacity 0.16s ease, background-color 0.16s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .secondary {
+      background: #e8ddd0;
+      color: var(--text);
+    }
+
+    .danger {
+      background: transparent;
+      color: var(--sub);
+      text-decoration: underline;
+      padding: 8px 12px;
+      font-weight: 500;
+    }
+
+    .result {
+      border: 1px solid rgba(216, 204, 184, 0.9);
+      border-radius: 18px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      display: grid;
+      gap: 14px;
+    }
+
+    .result-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: rgba(15, 118, 110, 0.12);
+      color: var(--accent-strong);
+      font-weight: 700;
+    }
+
+    fieldset {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .radios {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .radio {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .message {
+      min-height: 1.6em;
+      font-weight: 700;
+    }
+
+    .message.error {
+      color: var(--error);
+    }
+
+    .message.success {
+      color: var(--ok);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .auth-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 28px;
+      border-bottom: 1px solid rgba(216, 204, 184, 0.6);
+      background: rgba(255, 255, 255, 0.4);
+      font-size: 0.92rem;
+    }
+
+    .auth-bar .user-name {
+      font-weight: 700;
+      color: var(--accent-strong);
+    }
+
+    .auth-bar .spacer {
+      flex: 1;
+    }
+
+    .ledger-status {
+      padding: 14px 28px;
+      border-bottom: 1px solid rgba(216, 204, 184, 0.6);
+      font-size: 0.92rem;
+      color: var(--sub);
+    }
+
+    .ledger-status .ledger-ok {
+      color: var(--ok);
+      font-weight: 700;
+    }
+
+    .ledger-status .ledger-loading {
+      color: var(--sub);
+    }
+
+    .ledger-status .ledger-error {
+      color: var(--error);
+      font-weight: 700;
+    }
+
+    .sign-in-prompt {
+      padding: 48px 28px;
+      text-align: center;
+      display: grid;
+      gap: 16px;
+      justify-items: center;
+    }
+
+    .sign-in-prompt p {
+      margin: 0;
+      color: var(--sub);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 640px) {
+      .body,
+      .header {
+        padding: 20px;
+      }
+
+      .auth-bar,
+      .ledger-status {
+        padding: 12px 20px;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h1>ビーコン登録CSVメーカー</h1>
+        <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
+      </div>
+
+      <!-- 認証バー -->
+      <div id="authBar" class="auth-bar hidden">
+        <span>サインイン中: <span id="userName" class="user-name"></span></span>
+        <span class="spacer"></span>
+        <button id="reloadLedgerButton" class="secondary" type="button" style="padding:8px 14px;font-size:0.88rem;">台帳を再読込</button>
+        <button id="signOutButton" class="danger" type="button">サインアウト</button>
+      </div>
+
+      <!-- 台帳読み込み状況 -->
+      <div id="ledgerStatus" class="ledger-status hidden">
+        <span id="ledgerStatusText"></span>
+      </div>
+
+      <!-- 未サインイン時 -->
+      <div id="signInPrompt" class="sign-in-prompt">
+        <p>Entra ID でサインインすると、OneDrive上の発信機管理台帳を自動で読み込みます。</p>
+        <button id="signInButton" class="primary" type="button">Entra ID にサインイン</button>
+      </div>
+
+      <!-- メインフォーム（サインイン＋台帳読み込み後に表示） -->
+      <div id="mainForm" class="body hidden">
+        <div class="grid">
+          <div class="field">
+            <label for="staffCode">職員コード</label>
+            <input id="staffCode" type="text" inputmode="numeric" maxlength="6" placeholder="6桁の半角数字">
+            <div class="helper">半角数字のみ入力可。入力後に6桁ゼロ埋めします。</div>
+          </div>
+          <div class="field">
+            <label for="beaconName">ビーコン名</label>
+            <input id="beaconName" type="text" placeholder="ビーコン名を入力">
+            <div class="helper">検索時は必須です。</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="searchButton" class="primary" type="button">検索</button>
+          <button id="csvButton" class="secondary" type="button" disabled>CSV出力</button>
+        </div>
+
+        <div id="message" class="message" aria-live="polite"></div>
+
+        <div id="resultSection" class="result hidden">
+          <div class="result-row">
+            <span>検索結果</span>
+            <span id="macAddress" class="pill"></span>
+          </div>
+
+          <fieldset>
+            <div class="legend">紐づけタイミング</div>
+            <div class="radios">
+              <label class="radio" for="linkNow">
+                <input id="linkNow" type="radio" name="linkMode" value="now" checked>
+                <span>いますぐ紐づける</span>
+              </label>
+              <label class="radio" for="linkFuture">
+                <input id="linkFuture" type="radio" name="linkMode" value="future">
+                <span>未来日で紐づける</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div id="futureDateField" class="field hidden">
+            <label for="reservationDate">次回紐付け予約日</label>
+            <input id="reservationDate" type="date">
+            <div class="helper">現在日以降の日付のみ指定できます。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ========================================================
+     *  MSAL 認証設定
+     * ======================================================== */
+    const msalConfig = {
+      auth: {
+        clientId: "97159cb7-002f-4cf1-9bfa-f8a4bc0bc8e5",
+        authority: "https://login.microsoftonline.com/c742fe68-9dcd-4f3c-ba09-0839fa6ac440",
+        redirectUri: window.location.origin + window.location.pathname
+      },
+      cache: {
+        cacheLocation: "sessionStorage",
+        storeAuthStateInCookie: false
+      }
+    };
+
+    const tokenRequest = {
+      scopes: ["User.Read", "Files.Read"]
+    };
+
+    const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+    /* ========================================================
+     *  DOM 要素
+     * ======================================================== */
+    const signInPrompt = document.getElementById("signInPrompt");
+    const signInButton = document.getElementById("signInButton");
+    const signOutButton = document.getElementById("signOutButton");
+    const reloadLedgerButton = document.getElementById("reloadLedgerButton");
+    const authBar = document.getElementById("authBar");
+    const userNameSpan = document.getElementById("userName");
+    const ledgerStatusDiv = document.getElementById("ledgerStatus");
+    const ledgerStatusText = document.getElementById("ledgerStatusText");
+    const mainForm = document.getElementById("mainForm");
+
+    const staffCodeInput = document.getElementById("staffCode");
+    const beaconNameInput = document.getElementById("beaconName");
+    const searchButton = document.getElementById("searchButton");
+    const csvButton = document.getElementById("csvButton");
+    const messageEl = document.getElementById("message");
+    const resultSection = document.getElementById("resultSection");
+    const macAddressSpan = document.getElementById("macAddress");
+    const linkNow = document.getElementById("linkNow");
+    const linkFuture = document.getElementById("linkFuture");
+    const futureDateField = document.getElementById("futureDateField");
+    const reservationDateInput = document.getElementById("reservationDate");
+
+    /* ========================================================
+     *  状態
+     * ======================================================== */
+    const today = new Date();
+    const todayText = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, "0"),
+      String(today.getDate()).padStart(2, "0")
+    ].join("-");
+    reservationDateInput.min = todayText;
+
+    let cachedWorkbook = null;
+
+    const state = {
+      beaconName: "",
+      macAddress: ""
+    };
+
+    /* ========================================================
+     *  認証フロー
+     * ======================================================== */
+    async function getAccessToken() {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length === 0) throw new Error("未サインイン");
+      try {
+        const res = await msalInstance.acquireTokenSilent({
+          ...tokenRequest,
+          account: accounts[0]
+        });
+        return res.accessToken;
+      } catch {
+        const res = await msalInstance.acquireTokenPopup(tokenRequest);
+        return res.accessToken;
+      }
+    }
+
+    function showSignedIn(account) {
+      signInPrompt.classList.add("hidden");
+      authBar.classList.remove("hidden");
+      userNameSpan.textContent = account.name || account.username;
+    }
+
+    function showSignedOut() {
+      authBar.classList.add("hidden");
+      ledgerStatusDiv.classList.add("hidden");
+      mainForm.classList.add("hidden");
+      signInPrompt.classList.remove("hidden");
+      cachedWorkbook = null;
+    }
+
+    signInButton.addEventListener("click", async () => {
+      try {
+        const res = await msalInstance.loginPopup(tokenRequest);
+        showSignedIn(res.account);
+        await loadLedgerFromOneDrive();
+      } catch (err) {
+        console.error("サインインエラー:", err);
+      }
+    });
+
+    signOutButton.addEventListener("click", () => {
+      msalInstance.logoutPopup().then(showSignedOut).catch(console.error);
+    });
+
+    reloadLedgerButton.addEventListener("click", () => loadLedgerFromOneDrive());
+
+    /* ========================================================
+     *  OneDrive から台帳を読み込む (Graph API)
+     * ======================================================== */
+    function setLedgerStatus(text, type) {
+      ledgerStatusDiv.classList.remove("hidden");
+      ledgerStatusText.textContent = text;
+      ledgerStatusText.className = type ? "ledger-" + type : "";
+    }
+
+    async function loadLedgerFromOneDrive() {
+      mainForm.classList.add("hidden");
+      cachedWorkbook = null;
+      setLedgerStatus("発信機管理台帳を読み込み中…", "loading");
+
+      try {
+        const token = await getAccessToken();
+
+        // OneDrive 内を検索
+        const searchRes = await fetch(
+          "https://graph.microsoft.com/v1.0/me/drive/root/search(q='" +
+            encodeURIComponent("発信機管理台帳") + "')",
+          { headers: { Authorization: "Bearer " + token } }
+        );
+        if (!searchRes.ok) {
+          throw new Error("Graph API 検索エラー (" + searchRes.status + ")");
+        }
+        const searchData = await searchRes.json();
+        const file = (searchData.value || []).find(
+          function (item) { return item.name === "発信機管理台帳.xlsx"; }
+        );
+        if (!file) {
+          setLedgerStatus("発信機管理台帳.xlsx が OneDrive 上に見つかりません。", "error");
+          return;
+        }
+
+        // ファイル本体をダウンロード
+        const dlRes = await fetch(
+          "https://graph.microsoft.com/v1.0/me/drive/items/" + file.id + "/content",
+          { headers: { Authorization: "Bearer " + token } }
+        );
+        if (!dlRes.ok) {
+          throw new Error("ファイルダウンロードエラー (" + dlRes.status + ")");
+        }
+        const buffer = await dlRes.arrayBuffer();
+        cachedWorkbook = XLSX.read(buffer, { type: "array" });
+
+        setLedgerStatus("発信機管理台帳.xlsx を読み込みました。", "ok");
+        mainForm.classList.remove("hidden");
+      } catch (err) {
+        console.error("台帳読み込みエラー:", err);
+        setLedgerStatus("台帳の読み込みに失敗しました: " + err.message, "error");
+      }
+    }
+
+    /* ========================================================
+     *  ページ起動時: セッションに残った認証を確認
+     * ======================================================== */
+    msalInstance.handleRedirectPromise().then(function () {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) {
+        showSignedIn(accounts[0]);
+        loadLedgerFromOneDrive();
+      }
+    }).catch(console.error);
+
+    /* ========================================================
+     *  ビーコン検索・CSV 出力（前バージョンと同等）
+     * ======================================================== */
+    function setMessage(text, type) {
+      messageEl.textContent = text;
+      messageEl.className = "message" + (type ? " " + type : "");
+    }
+
+    function normalizeStaffCode(value) {
+      return value.replace(/[^0-9]/g, "").slice(0, 6);
+    }
+
+    function updateFutureDateVisibility() {
+      futureDateField.classList.toggle("hidden", !linkFuture.checked);
+    }
+
+    function resetResult() {
+      state.beaconName = "";
+      state.macAddress = "";
+      macAddressSpan.textContent = "";
+      resultSection.classList.add("hidden");
+      csvButton.disabled = true;
+      linkNow.checked = true;
+      updateFutureDateVisibility();
+      reservationDateInput.value = "";
+    }
+
+    function getSelectedMode() {
+      return linkFuture.checked ? "future" : "now";
+    }
+
+    function escapeCsv(value) {
+      var text = String(value == null ? "" : value);
+      if (/[",\r\n]/.test(text)) {
+        return '"' + text.replace(/"/g, '""') + '"';
+      }
+      return text;
+    }
+
+    function searchMacAddress(workbook, beaconName) {
+      for (var i = 0; i < workbook.SheetNames.length; i++) {
+        var rows = XLSX.utils.sheet_to_json(
+          workbook.Sheets[workbook.SheetNames[i]],
+          { header: 1, raw: false, defval: "" }
+        );
+        for (var r = 0; r < rows.length; r++) {
+          var mgmtNum = String(rows[r][4] == null ? "" : rows[r][4]).trim();
+          var mac = String(rows[r][5] == null ? "" : rows[r][5]).trim();
+          if (mgmtNum === beaconName && mac) return mac;
+        }
+      }
+      return "";
+    }
+
+    function buildCsvRow() {
+      var mode = getSelectedMode();
+      return [
+        staffCodeInput.value,
+        "",
+        mode === "now" ? state.beaconName : "",
+        mode === "now" ? state.macAddress : "",
+        "",
+        "",
+        mode === "future" ? reservationDateInput.value : "",
+        mode === "future" ? state.beaconName : "",
+        mode === "future" ? state.macAddress : "",
+        ""
+      ];
+    }
+
+    staffCodeInput.addEventListener("input", function () {
+      staffCodeInput.value = normalizeStaffCode(staffCodeInput.value);
+    });
+
+    staffCodeInput.addEventListener("blur", function () {
+      var n = normalizeStaffCode(staffCodeInput.value);
+      staffCodeInput.value = n ? n.padStart(6, "0") : "";
+    });
+
+    linkNow.addEventListener("change", updateFutureDateVisibility);
+    linkFuture.addEventListener("change", updateFutureDateVisibility);
+    beaconNameInput.addEventListener("input", resetResult);
+
+    searchButton.addEventListener("click", function () {
+      var beaconName = beaconNameInput.value.trim();
+      if (!beaconName) {
+        resetResult();
+        setMessage("ビーコン名を入力してください。", "error");
+        beaconNameInput.focus();
+        return;
+      }
+      if (!cachedWorkbook) {
+        setMessage("台帳が読み込まれていません。サインインしてください。", "error");
+        return;
+      }
+
+      setMessage("検索中です…", "");
+      csvButton.disabled = true;
+
+      var foundMac = searchMacAddress(cachedWorkbook, beaconName);
+      if (!foundMac) {
+        resetResult();
+        setMessage("該当するMACアドレスは見つかりませんでした。", "error");
+        return;
+      }
+
+      state.beaconName = beaconName;
+      state.macAddress = foundMac;
+      macAddressSpan.textContent = foundMac;
+      resultSection.classList.remove("hidden");
+      csvButton.disabled = false;
+      updateFutureDateVisibility();
+      setMessage("MACアドレスを取得しました。", "success");
+    });
+
+    csvButton.addEventListener("click", function () {
+      var staffCode = normalizeStaffCode(staffCodeInput.value);
+      if (staffCode.length !== 6) {
+        setMessage("職員コードは6桁の半角数字で入力してください。", "error");
+        staffCodeInput.focus();
+        return;
+      }
+      staffCodeInput.value = staffCode.padStart(6, "0");
+
+      if (!state.macAddress) {
+        setMessage("先にビーコン検索を行ってください。", "error");
+        return;
+      }
+
+      if (getSelectedMode() === "future") {
+        if (!reservationDateInput.value) {
+          setMessage("未来日で紐づける場合は次回紐付け予約日を入力してください。", "error");
+          reservationDateInput.focus();
+          return;
+        }
+        if (reservationDateInput.value < todayText) {
+          setMessage("次回紐付け予約日は現在日以降を指定してください。", "error");
+          reservationDateInput.focus();
+          return;
+        }
+      }
+
+      var header = [
+        "職員コード", "利用者名", "ビーコン名", "MACアドレス",
+        "最終検知時刻", "備考", "次回紐付け予約日",
+        "次回ビーコン名", "次回MACアドレス", "電池交換"
+      ];
+      var lines = [header, buildCsvRow()].map(function (row) {
+        return row.map(escapeCsv).join(",");
+      });
+      var blob = new Blob(["\uFEFF" + lines.join("\r\n")], {
+        type: "text/csv;charset=utf-8;"
+      });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      var stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+      a.href = url;
+      a.download = "beacon_registration_" + stamp + ".csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      setMessage("CSVを出力しました。", "success");
+    });
+
+    updateFutureDateVisibility();
+  </script>
+</body>
+</html>
