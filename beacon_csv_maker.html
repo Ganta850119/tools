@@ -305,7 +305,7 @@
   <div class="container">
     <div class="card">
       <div class="header">
-        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.0.0</span></h1>
+        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.1.0</span></h1>
         <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
       </div>
 
@@ -400,6 +400,7 @@
       scopes: ["User.Read", "Files.Read"]
     };
 
+    console.log("[INIT] MSAL config:", JSON.stringify(msalConfig.auth));
     const msalInstance = new msal.PublicClientApplication(msalConfig);
     let msalReady = false;
 
@@ -451,26 +452,33 @@
      * ======================================================== */
     async function getAccessToken() {
       const accounts = msalInstance.getAllAccounts();
+      console.log("[AUTH] getAllAccounts:", accounts.length, "件");
       if (accounts.length === 0) throw new Error("未サインイン");
       try {
+        console.log("[AUTH] acquireTokenSilent 試行…");
         const res = await msalInstance.acquireTokenSilent({
           ...tokenRequest,
           account: accounts[0]
         });
+        console.log("[AUTH] acquireTokenSilent 成功");
         return res.accessToken;
-      } catch {
+      } catch (silentErr) {
+        console.warn("[AUTH] acquireTokenSilent 失敗、ポップアップへ:", silentErr.message || silentErr);
         const res = await msalInstance.acquireTokenPopup(tokenRequest);
+        console.log("[AUTH] acquireTokenPopup 成功");
         return res.accessToken;
       }
     }
 
     function showSignedIn(account) {
+      console.log("[AUTH] サインイン済み:", account.name || account.username);
       signInPrompt.classList.add("hidden");
       authBar.classList.remove("hidden");
       userNameSpan.textContent = account.name || account.username;
     }
 
     function showSignedOut() {
+      console.log("[AUTH] サインアウト");
       authBar.classList.add("hidden");
       ledgerStatusDiv.classList.add("hidden");
       mainForm.classList.add("hidden");
@@ -479,24 +487,33 @@
     }
 
     signInButton.addEventListener("click", async () => {
+      console.log("[UI] サインインボタン押下, msalReady=", msalReady);
       if (!msalReady) {
-        console.warn("MSAL 初期化待ち");
+        console.warn("[AUTH] MSAL 初期化待ち — ボタン無視");
         return;
       }
       try {
+        console.log("[AUTH] loginPopup 開始…");
         const res = await msalInstance.loginPopup(tokenRequest);
+        console.log("[AUTH] loginPopup 成功:", res.account.name || res.account.username);
         showSignedIn(res.account);
         await loadLedgerFromOneDrive();
       } catch (err) {
-        console.error("サインインエラー:", err);
+        console.error("[AUTH] サインインエラー:", err);
       }
     });
 
     signOutButton.addEventListener("click", () => {
-      msalInstance.logoutPopup().then(showSignedOut).catch(console.error);
+      console.log("[UI] サインアウトボタン押下");
+      msalInstance.logoutPopup().then(showSignedOut).catch(function (err) {
+        console.error("[AUTH] サインアウトエラー:", err);
+      });
     });
 
-    reloadLedgerButton.addEventListener("click", () => loadLedgerFromOneDrive());
+    reloadLedgerButton.addEventListener("click", () => {
+      console.log("[UI] 台帳再読込ボタン押下");
+      loadLedgerFromOneDrive();
+    });
 
     /* ========================================================
      *  OneDrive から台帳を読み込む (Graph API)
@@ -508,46 +525,59 @@
     }
 
     async function loadLedgerFromOneDrive() {
+      console.log("[LEDGER] 台帳読み込み開始");
       mainForm.classList.add("hidden");
       cachedWorkbook = null;
       setLedgerStatus("発信機管理台帳を読み込み中…", "loading");
 
       try {
         const token = await getAccessToken();
+        console.log("[LEDGER] トークン取得済み");
 
         // OneDrive 内を検索
-        const searchRes = await fetch(
-          "https://graph.microsoft.com/v1.0/me/drive/root/search(q='" +
-            encodeURIComponent("発信機管理台帳") + "')",
+        var searchUrl = "https://graph.microsoft.com/v1.0/me/drive/root/search(q='" +
+            encodeURIComponent("発信機管理台帳") + "')";
+        console.log("[LEDGER] Graph 検索:", searchUrl);
+        const searchRes = await fetch(searchUrl,
           { headers: { Authorization: "Bearer " + token } }
         );
+        console.log("[LEDGER] 検索レスポンス:", searchRes.status, searchRes.statusText);
         if (!searchRes.ok) {
           throw new Error("Graph API 検索エラー (" + searchRes.status + ")");
         }
         const searchData = await searchRes.json();
+        console.log("[LEDGER] 検索結果件数:", (searchData.value || []).length, "件");
+        (searchData.value || []).forEach(function (item, idx) {
+          console.log("[LEDGER]   [" + idx + "] name=" + item.name + ", id=" + item.id);
+        });
         const file = (searchData.value || []).find(
           function (item) { return item.name === "発信機管理台帳.xlsx"; }
         );
         if (!file) {
+          console.warn("[LEDGER] 発信機管理台帳.xlsx が見つからない");
           setLedgerStatus("発信機管理台帳.xlsx が OneDrive 上に見つかりません。", "error");
           return;
         }
+        console.log("[LEDGER] ファイル特定: id=" + file.id);
 
         // ファイル本体をダウンロード
         const dlRes = await fetch(
           "https://graph.microsoft.com/v1.0/me/drive/items/" + file.id + "/content",
           { headers: { Authorization: "Bearer " + token } }
         );
+        console.log("[LEDGER] ダウンロードレスポンス:", dlRes.status, dlRes.statusText);
         if (!dlRes.ok) {
           throw new Error("ファイルダウンロードエラー (" + dlRes.status + ")");
         }
         const buffer = await dlRes.arrayBuffer();
+        console.log("[LEDGER] ダウンロード完了:", buffer.byteLength, "bytes");
         cachedWorkbook = XLSX.read(buffer, { type: "array" });
+        console.log("[LEDGER] SheetJS パース完了, シート:", cachedWorkbook.SheetNames);
 
         setLedgerStatus("発信機管理台帳.xlsx を読み込みました。", "ok");
         mainForm.classList.remove("hidden");
       } catch (err) {
-        console.error("台帳読み込みエラー:", err);
+        console.error("[LEDGER] 台帳読み込みエラー:", err);
         setLedgerStatus("台帳の読み込みに失敗しました: " + err.message, "error");
       }
     }
@@ -555,17 +585,23 @@
     /* ========================================================
      *  ページ起動時: MSAL 初期化 → セッション復元
      * ======================================================== */
+    console.log("[INIT] MSAL initialize() 開始…");
     msalInstance.initialize().then(function () {
       msalReady = true;
+      console.log("[INIT] MSAL initialize() 完了, msalReady=true");
       return msalInstance.handleRedirectPromise();
-    }).then(function () {
+    }).then(function (redirectRes) {
+      console.log("[INIT] handleRedirectPromise 完了, result:", redirectRes ? "あり" : "なし");
       var accounts = msalInstance.getAllAccounts();
+      console.log("[INIT] 既存アカウント:", accounts.length, "件");
       if (accounts.length > 0) {
         showSignedIn(accounts[0]);
         loadLedgerFromOneDrive();
+      } else {
+        console.log("[INIT] 未サインイン状態");
       }
     }).catch(function (err) {
-      console.error("MSAL 初期化エラー:", err);
+      console.error("[INIT] MSAL 初期化エラー:", err);
     });
 
     /* ========================================================
@@ -608,17 +644,24 @@
     }
 
     function searchMacAddress(workbook, beaconName) {
+      console.log("[SEARCH] ビーコン名=\"" + beaconName + "\" で検索開始");
       for (var i = 0; i < workbook.SheetNames.length; i++) {
+        var sheetName = workbook.SheetNames[i];
         var rows = XLSX.utils.sheet_to_json(
-          workbook.Sheets[workbook.SheetNames[i]],
+          workbook.Sheets[sheetName],
           { header: 1, raw: false, defval: "" }
         );
+        console.log("[SEARCH] シート \"" + sheetName + "\": " + rows.length + " 行");
         for (var r = 0; r < rows.length; r++) {
           var mgmtNum = String(rows[r][4] == null ? "" : rows[r][4]).trim();
           var mac = String(rows[r][5] == null ? "" : rows[r][5]).trim();
-          if (mgmtNum === beaconName && mac) return mac;
+          if (mgmtNum === beaconName && mac) {
+            console.log("[SEARCH] ヒット: 行" + (r + 1) + ", E=\"" + mgmtNum + "\", F=\"" + mac + "\"");
+            return mac;
+          }
         }
       }
+      console.log("[SEARCH] 該当なし");
       return "";
     }
 
@@ -652,6 +695,7 @@
     beaconNameInput.addEventListener("input", resetResult);
 
     searchButton.addEventListener("click", function () {
+      console.log("[UI] 検索ボタン押下");
       var beaconName = beaconNameInput.value.trim();
       if (!beaconName) {
         resetResult();
@@ -684,6 +728,7 @@
     });
 
     csvButton.addEventListener("click", function () {
+      console.log("[UI] CSV出力ボタン押下");
       var staffCode = normalizeStaffCode(staffCodeInput.value);
       if (staffCode.length !== 6) {
         setMessage("職員コードは6桁の半角数字で入力してください。", "error");
@@ -726,6 +771,7 @@
       var stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
       a.href = url;
       a.download = "beacon_registration_" + stamp + ".csv";
+      console.log("[CSV] 出力:", a.download, "mode=" + getSelectedMode(), "row:", buildCsvRow());
       document.body.appendChild(a);
       a.click();
       a.remove();
