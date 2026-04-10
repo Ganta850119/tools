@@ -307,6 +307,53 @@
       letter-spacing: 0.04em;
     }
 
+    .next-step {
+      border: 2px solid var(--accent);
+      border-radius: 18px;
+      padding: 20px;
+      background: rgba(15, 118, 110, 0.06);
+      display: grid;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .next-step .next-step-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--accent-strong);
+    }
+
+    .next-step p {
+      margin: 0;
+      color: var(--sub);
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    .next-step .import-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1.05rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 0.16s ease, opacity 0.16s ease;
+    }
+
+    .next-step .import-link:hover {
+      transform: translateY(-1px);
+      opacity: 0.9;
+    }
+
     .divider {
       border: 0;
       border-top: 1px solid var(--line);
@@ -397,7 +444,7 @@
   <div class="container">
     <div class="card">
       <div class="header">
-        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.4.0</span></h1>
+        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.0</span></h1>
         <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
       </div>
 
@@ -485,6 +532,13 @@
           </div>
 
           <button id="csvButton" class="primary csv-output-btn" type="button">CSV出力</button>
+        </div>
+
+        <!-- STEP 3: インポート案内（CSV出力後に表示） -->
+        <div id="importGuide" class="next-step hidden">
+          <div class="next-step-label"><span class="step-num">3</span>ビーコン管理画面でインポート</div>
+          <p>ダウンロードしたCSVを、ビーコン管理画面の「インポート」からアップロードしてください。</p>
+          <a href="https://app.drjoy.jp/at/at0087" target="_blank" rel="noopener noreferrer" class="import-link">ビーコン管理画面を開く ↗</a>
         </div>
 
       </div>
@@ -738,6 +792,7 @@
       resultSection.classList.add("hidden");
       document.getElementById("ownerInfo").classList.add("hidden");
       document.getElementById("csvSection").classList.add("hidden");
+      document.getElementById("importGuide").classList.add("hidden");
       csvButton.disabled = true;
       linkNow.checked = true;
       updateFutureDateVisibility();
@@ -920,6 +975,8 @@
       URL.revokeObjectURL(url);
 
       setMessage("CSVを出力しました。", "success");
+      document.getElementById("importGuide").classList.remove("hidden");
+      document.getElementById("importGuide").scrollIntoView({ behavior: "smooth", block: "center" });
     });
 
     updateFutureDateVisibility();
