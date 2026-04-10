@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entra ID ログインチェック</title>
+  <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js" integrity="sha384-QyE/2P2MxuBPTC4QgfrOzyYI8cTQ4/EJW0Y90sYXQMG9N8Qig/SlRzI/oSy1M9n5" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "Yu Gothic", Meiryo, sans-serif;
+      background: #f6f7fb;
+      color: #1f2933;
+    }
+    body {
+      margin: 0;
+      display: grid;
+      min-height: 100vh;
+      place-items: center;
+    }
+    .card {
+      width: min(720px, 90vw);
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+      padding: 28px;
+      display: grid;
+      gap: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.02em;
+    }
+    p {
+      margin: 0;
+      line-height: 1.5;
+    }
+    .status {
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #f0f4ff;
+      color: #22376b;
+      border: 1px solid #d6e0ff;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    button:focus-visible {
+      outline: 2px solid #2563eb;
+      outline-offset: 2px;
+    }
+    .primary {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
+    }
+    .secondary {
+      background: #eef2ff;
+      color: #1f2933;
+      border: 1px solid #d6dffd;
+    }
+    button:hover {
+      transform: translateY(-1px);
+    }
+    code {
+      background: #f4f6f8;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Microsoft Entra ID ログイン確認</h1>
+    <p>未ログインの場合は Microsoft アカウント認証に誘導します。初回は下の設定を自分のテナント情報に置き換えてください。</p>
+    <div class="status" id="status">状態を確認中...</div>
+    <div class="actions">
+      <button class="primary" id="loginBtn">サインイン</button>
+      <button class="secondary" id="logoutBtn">サインアウト</button>
+    </div>
+    <p>
+      設定値: <code>clientId</code>、<code>tenantId</code>、<code>redirectUri</code> を使用する環境に合わせて変更してください。セキュリティ上、ローカルファイル (<code>file://</code>) 直接実行は避け、<code>https://localhost</code> などのローカルサーバーで配信してください。
+    </p>
+  </div>
+  <script>
+    const config = {
+      tenantId: "YOUR_TENANT_ID",
+      clientId: "YOUR_CLIENT_ID",
+      redirectUri: "https://localhost:3000/login.html", // ローカル配信の URL に合わせる
+      scopes: ["User.Read"],
+    };
+
+    const msalConfig = {
+      auth: {
+        clientId: config.clientId,
+        authority: `https://login.microsoftonline.com/${config.tenantId}`,
+        redirectUri: config.redirectUri,
+      },
+      cache: {
+        cacheLocation: "localStorage",
+        storeAuthStateInCookie: true,
+      },
+    };
+
+    const msalInstance = new msal.PublicClientApplication(msalConfig);
+    const statusEl = document.getElementById("status");
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    loginBtn.addEventListener("click", () => signIn());
+    logoutBtn.addEventListener("click", () => signOut());
+
+    function setStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    function showSignedIn(account) {
+      setStatus(`サインイン済み: ${account.username || account.name || "(不明)"}`);
+    }
+
+    function showSignedOut() {
+      setStatus("未サインインです。サインインを実行してください。");
+    }
+
+    async function handleRedirect() {
+      const result = await msalInstance.handleRedirectPromise();
+      if (result && result.account) {
+        msalInstance.setActiveAccount(result.account);
+        showSignedIn(result.account);
+        return;
+      }
+      const existing = msalInstance.getAllAccounts();
+      if (existing.length > 0) {
+        msalInstance.setActiveAccount(existing[0]);
+        showSignedIn(existing[0]);
+      } else {
+        showSignedOut();
+      }
+    }
+
+    function signIn() {
+      msalInstance.loginRedirect({
+        scopes: config.scopes,
+        prompt: "select_account",
+      });
+    }
+
+    function signOut() {
+      const account = msalInstance.getActiveAccount();
+      msalInstance.logoutRedirect({ account });
+    }
+
+    handleRedirect().catch((err) => {
+      console.error(err);
+      setStatus("エラーが発生しました。設定値を確認してください。");
+    });
+  </script>
+</body>
+</html>
