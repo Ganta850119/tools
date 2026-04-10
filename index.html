@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entra ID SPA サインイン</title>
+  <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js" integrity="sha384-QyE/2P2MxuBPTC4QgfrOzyYI8cTQ4/EJW0Y90sYXQMG9N8Qig/SlRzI/oSy1M9n5" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "Yu Gothic UI", Meiryo, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(24, 119, 242, 0.12), transparent 28%),
+        linear-gradient(180deg, #eef4ff 0%, #f8fbff 55%, #f1f5f9 100%);
+      color: #10233d;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .shell {
+      width: min(920px, 100%);
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 22px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+      overflow: hidden;
+    }
+
+    .hero {
+      display: grid;
+      gap: 16px;
+      padding: 28px;
+      background: linear-gradient(135deg, rgba(11, 42, 79, 0.96), rgba(10, 92, 140, 0.92));
+      color: #f8fbff;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 38px);
+      line-height: 1.15;
+      letter-spacing: 0.01em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 60ch;
+      line-height: 1.7;
+      color: rgba(248, 251, 255, 0.88);
+    }
+
+    .body {
+      display: grid;
+      gap: 18px;
+      padding: 24px 28px 28px;
+    }
+
+    .status {
+      border-radius: 16px;
+      padding: 14px 16px;
+      border: 1px solid #cfe0ff;
+      background: #eef5ff;
+      color: #15396b;
+      line-height: 1.6;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    button {
+      appearance: none;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: wait;
+      transform: none;
+    }
+
+    button:focus-visible {
+      outline: 3px solid rgba(37, 99, 235, 0.32);
+      outline-offset: 2px;
+    }
+
+    .primary {
+      background: linear-gradient(135deg, #0f6cbd, #0a86d7);
+      color: #ffffff;
+      box-shadow: 0 10px 24px rgba(15, 108, 189, 0.24);
+    }
+
+    .secondary {
+      background: #f8fafc;
+      color: #1e293b;
+      border: 1px solid #d7e0ea;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .tile {
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 16px;
+      background: #ffffff;
+    }
+
+    .tile h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      color: #37506e;
+    }
+
+    .tile p,
+    .tile dl {
+      margin: 0;
+      line-height: 1.7;
+    }
+
+    .tile dl {
+      display: grid;
+      gap: 8px;
+    }
+
+    .tile dt {
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .tile dd {
+      margin: 0;
+      word-break: break-word;
+    }
+
+    .muted {
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    code {
+      background: #eef2f7;
+      border-radius: 8px;
+      padding: 2px 6px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 640px) {
+      .hero,
+      .body {
+        padding: 22px;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="panel">
+      <div class="hero">
+        <h1>Microsoft Entra ID サインイン付き SPA</h1>
+        <p>
+          このページは MSAL.js を使ったブラウザ単体のシングルページアプリです。
+          Authorization Code Flow + PKCE で認証し、未ログイン時はメイン内容を隠します。
+        </p>
+      </div>
+
+      <div class="body">
+        <div class="status" id="status">状態を確認中...</div>
+
+        <div class="actions">
+          <button class="primary" id="loginBtn" type="button">Entra ID にサインイン</button>
+          <button class="secondary hidden" id="logoutBtn" type="button">サインアウト</button>
+        </div>
+
+        <section id="anonymousView">
+          <div class="tile">
+            <h2>未サインイン</h2>
+            <p>
+              メインコンテンツはサインイン後に表示します。<code>tenantId</code>、<code>clientId</code>、<code>redirectUri</code>
+              を自分の環境の値に置き換えてから試してください。
+            </p>
+          </div>
+        </section>
+
+        <section id="authenticatedView" class="hidden">
+          <div class="grid">
+            <article class="tile">
+              <h2>サインイン済みユーザー</h2>
+              <dl>
+                <div>
+                  <dt>name</dt>
+                  <dd id="userName">-</dd>
+                </div>
+                <div>
+                  <dt>preferred_username</dt>
+                  <dd id="preferredUsername">-</dd>
+                </div>
+                <div>
+                  <dt>username</dt>
+                  <dd id="accountUsername">-</dd>
+                </div>
+                <div>
+                  <dt>tenant</dt>
+                  <dd id="tenantDisplay">-</dd>
+                </div>
+              </dl>
+            </article>
+
+            <article class="tile">
+              <h2>保護対象コンテンツ</h2>
+              <p>
+                ここが未ログイン時に隠したい本体コンテンツです。業務メニューやリンク、ユーザー向け情報をこの領域に置きます。
+              </p>
+            </article>
+          </div>
+
+          <p class="muted">
+            このサンプルはブラウザ内で MSAL が Authorization Code Flow + PKCE を使って認証します。
+            サーバー側でシークレットは扱いません。
+          </p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const authConfig = {
+      tenantId: "c742fe68-9dcd-4f3c-ba09-0839fa6ac440",
+      clientId: "97159cb7-002f-4cf1-9bfa-f8a4bc0bc8e5",
+      redirectUri: "https://ganta850119.github.io/tools/login.html",
+      postLogoutRedirectUri: "https://ganta850119.github.io/tools/login.html",
+      scopes: ["openid", "profile", "User.Read"],
+    };
+
+    const msalConfig = {
+      auth: {
+        clientId: authConfig.clientId,
+        authority: `https://login.microsoftonline.com/${authConfig.tenantId}`,
+        redirectUri: authConfig.redirectUri,
+        postLogoutRedirectUri: authConfig.postLogoutRedirectUri,
+        navigateToLoginRequestUrl: false,
+      },
+      cache: {
+        cacheLocation: "sessionStorage",
+        storeAuthStateInCookie: false,
+      },
+      system: {
+        loggerOptions: {
+          loggerCallback: (level, message, containsPii) => {
+            if (!containsPii) {
+              console.debug(`[MSAL:${level}] ${message}`);
+            }
+          },
+        },
+      },
+    };
+
+    const loginRequest = {
+      scopes: authConfig.scopes,
+      prompt: "select_account",
+    };
+
+    const statusEl = document.getElementById("status");
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const anonymousView = document.getElementById("anonymousView");
+    const authenticatedView = document.getElementById("authenticatedView");
+    const userNameEl = document.getElementById("userName");
+    const preferredUsernameEl = document.getElementById("preferredUsername");
+    const accountUsernameEl = document.getElementById("accountUsername");
+    const tenantDisplayEl = document.getElementById("tenantDisplay");
+
+    const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+    loginBtn.addEventListener("click", signIn);
+    logoutBtn.addEventListener("click", signOut);
+
+    function setBusy(isBusy) {
+      loginBtn.disabled = isBusy;
+      logoutBtn.disabled = isBusy;
+    }
+
+    function setStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    function showAnonymous() {
+      anonymousView.classList.remove("hidden");
+      authenticatedView.classList.add("hidden");
+      logoutBtn.classList.add("hidden");
+      loginBtn.classList.remove("hidden");
+      setStatus("未サインインです。Entra ID でサインインしてください。");
+    }
+
+    function showAuthenticated(account) {
+      const claims = account.idTokenClaims || {};
+      userNameEl.textContent = claims.name || account.name || "-";
+      preferredUsernameEl.textContent = claims.preferred_username || "-";
+      accountUsernameEl.textContent = account.username || "-";
+      tenantDisplayEl.textContent = claims.tid || authConfig.tenantId || "-";
+
+      anonymousView.classList.add("hidden");
+      authenticatedView.classList.remove("hidden");
+      logoutBtn.classList.remove("hidden");
+      loginBtn.classList.add("hidden");
+      setStatus(`サインイン済みです: ${account.username || account.name || "ユーザー情報なし"}`);
+    }
+
+    function getCurrentAccount() {
+      const active = msalInstance.getActiveAccount();
+      if (active) {
+        return active;
+      }
+
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) {
+        msalInstance.setActiveAccount(accounts[0]);
+        return accounts[0];
+      }
+
+      return null;
+    }
+
+    async function initializeAuth() {
+      setBusy(true);
+
+      try {
+        await msalInstance.initialize();
+        const redirectResult = await msalInstance.handleRedirectPromise();
+
+        if (redirectResult && redirectResult.account) {
+          msalInstance.setActiveAccount(redirectResult.account);
+        }
+
+        const currentAccount = getCurrentAccount();
+
+        if (currentAccount) {
+          showAuthenticated(currentAccount);
+        } else {
+          showAnonymous();
+        }
+      } catch (error) {
+        console.error(error);
+        showAnonymous();
+        setStatus(`認証初期化に失敗しました: ${error.message || error}`);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function signIn() {
+      setBusy(true);
+      setStatus("サインイン画面へ移動します...");
+      msalInstance.loginRedirect(loginRequest).catch((error) => {
+        console.error(error);
+        setBusy(false);
+        setStatus(`サインイン開始に失敗しました: ${error.message || error}`);
+      });
+    }
+
+    function signOut() {
+      const account = getCurrentAccount();
+      setBusy(true);
+      setStatus("サインアウトしています...");
+      msalInstance.logoutRedirect({
+        account,
+      }).catch((error) => {
+        console.error(error);
+        setBusy(false);
+        setStatus(`サインアウトに失敗しました: ${error.message || error}`);
+      });
+    }
+
+    initializeAuth();
+  </script>
+</body>
+</html>
