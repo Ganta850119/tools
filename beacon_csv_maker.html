@@ -208,6 +208,95 @@
       cursor: pointer;
     }
 
+    /* ── 操作カード ── */
+    .op-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .op-card {
+      position: relative;
+    }
+
+    .op-card input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .op-card-label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 14px 10px;
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
+      height: 100%;
+    }
+
+    .op-card-label:hover {
+      border-color: #a0b0a0;
+      background: #f8f8f6;
+    }
+
+    .op-card input:checked + .op-card-label {
+      border-color: var(--accent);
+      background: rgba(15, 118, 110, 0.09);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+    }
+
+    .op-card input:checked + .op-card-label.op-danger {
+      border-color: var(--error);
+      background: rgba(180, 35, 24, 0.07);
+      box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.12);
+    }
+
+    .op-icon {
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .op-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .op-card-label.op-danger .op-title {
+      color: var(--error);
+    }
+
+    .op-desc {
+      font-size: 0.8rem;
+      color: var(--sub);
+      line-height: 1.4;
+    }
+
+    .op-section-label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--sub);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      grid-column: 1 / -1;
+      padding-top: 4px;
+    }
+
+    .op-divider {
+      grid-column: 1 / -1;
+      border: 0;
+      border-top: 1px dashed var(--line);
+      margin: 2px 0;
+    }
+
     .message {
       min-height: 1.6em;
       font-weight: 700;
@@ -308,7 +397,7 @@
     }
 
     .search-actions button {
-      min-width: 140px;
+      min-width: 300px;
     }
 
     .csv-section {
@@ -543,26 +632,61 @@
         <div id="csvSection" class="csv-section hidden">
           <div class="step-label"><span class="step-num">2</span>CSV出力設定</div>
 
-          <div class="grid">
-            <div class="field">
-              <label for="staffCode">職員コード</label>
-              <input id="staffCode" type="text" inputmode="numeric" maxlength="6" placeholder="6桁の半角数字">
-              <div class="helper">半角数字のみ入力可。6桁ゼロ埋めします。</div>
-            </div>
-            <fieldset>
-              <div class="legend">紐づけタイミング</div>
-              <div class="radios">
-                <label class="radio" for="linkNow">
-                  <input id="linkNow" type="radio" name="linkMode" value="now" checked>
-                  <span>いますぐ紐づける</span>
-                </label>
-                <label class="radio" for="linkFuture">
-                  <input id="linkFuture" type="radio" name="linkMode" value="future">
-                  <span>未来日で紐づける</span>
+          <div class="field">
+            <label for="staffCode">職員コード</label>
+            <input id="staffCode" type="text" inputmode="numeric" maxlength="6" placeholder="6桁の半角数字">
+            <div class="helper">半角数字のみ入力可。6桁ゼロ埋めします。</div>
+          </div>
+
+          <fieldset>
+            <div class="legend">操作の種類とタイミングを選択</div>
+            <div class="op-grid">
+              <div class="op-section-label">⬇ いますぐ</div>
+              <div class="op-section-label">⬇ 明日以降（日付指定）</div>
+
+              <!-- いますぐ登録 -->
+              <div class="op-card">
+                <input id="modeNowLink" type="radio" name="linkMode" value="now-link" checked>
+                <label class="op-card-label" for="modeNowLink">
+                  <span class="op-icon">🔗</span>
+                  <span class="op-title">いますぐ登録</span>
+                  <span class="op-desc">今日付けでビーコンを紐づける</span>
                 </label>
               </div>
-            </fieldset>
-          </div>
+
+              <!-- 明日以降で登録 -->
+              <div class="op-card">
+                <input id="modeFutureLink" type="radio" name="linkMode" value="future-link">
+                <label class="op-card-label" for="modeFutureLink">
+                  <span class="op-icon">📅</span>
+                  <span class="op-title">明日以降で登録</span>
+                  <span class="op-desc">指定日からビーコンを紐づける</span>
+                </label>
+              </div>
+
+              <hr class="op-divider">
+
+              <!-- いますぐ解除 -->
+              <div class="op-card">
+                <input id="modeNowUnlink" type="radio" name="linkMode" value="now-unlink">
+                <label class="op-card-label op-danger" for="modeNowUnlink">
+                  <span class="op-icon">✂️</span>
+                  <span class="op-title">いますぐ解除</span>
+                  <span class="op-desc">今日付けで紐づけを外す</span>
+                </label>
+              </div>
+
+              <!-- 明日以降で解除 -->
+              <div class="op-card">
+                <input id="modeFutureUnlink" type="radio" name="linkMode" value="future-unlink">
+                <label class="op-card-label op-danger" for="modeFutureUnlink">
+                  <span class="op-icon">🗓️</span>
+                  <span class="op-title">明日以降で解除</span>
+                  <span class="op-desc">指定日に紐づけを外す</span>
+                </label>
+              </div>
+            </div>
+          </fieldset>
 
           <div id="futureDateField" class="field hidden">
             <label for="reservationDate">次回紐付け予約日</label>
@@ -630,8 +754,6 @@
     const messageEl = document.getElementById("message");
     const resultSection = document.getElementById("resultSection");
     const macAddressSpan = document.getElementById("macAddress");
-    const linkNow = document.getElementById("linkNow");
-    const linkFuture = document.getElementById("linkFuture");
     const futureDateField = document.getElementById("futureDateField");
     const reservationDateInput = document.getElementById("reservationDate");
 
@@ -822,8 +944,14 @@
       return value.replace(/[^0-9]/g, "").slice(0, 6);
     }
 
+    function getSelectedMode() {
+      var el = document.querySelector('input[name="linkMode"]:checked');
+      return el ? el.value : "now-link";
+    }
+
     function updateFutureDateVisibility() {
-      futureDateField.classList.toggle("hidden", !linkFuture.checked);
+      var mode = getSelectedMode();
+      futureDateField.classList.toggle("hidden", mode !== "future-link" && mode !== "future-unlink");
     }
 
     function resetResult() {
@@ -835,13 +963,9 @@
       document.getElementById("csvSection").classList.add("hidden");
       document.getElementById("importGuide").classList.add("hidden");
       csvButton.disabled = true;
-      linkNow.checked = true;
+      document.getElementById("modeNowLink").checked = true;
       updateFutureDateVisibility();
       reservationDateInput.value = "";
-    }
-
-    function getSelectedMode() {
-      return linkFuture.checked ? "future" : "now";
     }
 
     function escapeCsv(value) {
@@ -894,16 +1018,19 @@
 
     function buildCsvRow() {
       var mode = getSelectedMode();
+      var isNow    = mode === "now-link"    || mode === "now-unlink";
+      var isFuture = mode === "future-link" || mode === "future-unlink";
+      var isLink   = mode === "now-link"    || mode === "future-link";
       return [
         staffCodeInput.value,
         "",
-        mode === "now" ? state.beaconName : "",
-        mode === "now" ? state.macAddress : "",
+        isNow  && isLink ? state.beaconName  : "",
+        isNow  && isLink ? state.macAddress  : "",
         "",
         "",
-        mode === "future" ? reservationDateInput.value : "",
-        mode === "future" ? state.beaconName : "",
-        mode === "future" ? state.macAddress : "",
+        isFuture ? reservationDateInput.value : "",
+        isFuture && isLink ? state.beaconName : "",
+        isFuture && isLink ? state.macAddress : "",
         ""
       ];
     }
@@ -917,8 +1044,9 @@
       staffCodeInput.value = n ? n.padStart(6, "0") : "";
     });
 
-    linkNow.addEventListener("change", updateFutureDateVisibility);
-    linkFuture.addEventListener("change", updateFutureDateVisibility);
+    document.querySelectorAll('input[name="linkMode"]').forEach(function(radio) {
+      radio.addEventListener("change", updateFutureDateVisibility);
+    });
     beaconNameInput.addEventListener("input", resetResult);
     staffNoSearchInput.addEventListener("input", function () {
       staffNoSearchInput.value = normalizeStaffCode(staffNoSearchInput.value);
