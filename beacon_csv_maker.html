@@ -291,6 +291,26 @@
       white-space: nowrap;
     }
 
+    .search-layout {
+      display: grid;
+      gap: 14px;
+    }
+
+    .search-fields {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .search-actions {
+      display: flex;
+      justify-content: center;
+    }
+
+    .search-actions button {
+      min-width: 140px;
+    }
+
     .csv-section {
       border: 1px solid var(--line);
       border-radius: 18px;
@@ -437,6 +457,14 @@
       button {
         width: 100%;
       }
+
+      .search-fields {
+        grid-template-columns: 1fr;
+      }
+
+      .search-actions {
+        justify-content: stretch;
+      }
     }
   </style>
 </head>
@@ -472,9 +500,20 @@
 
         <!-- STEP 1: ビーコン検索 -->
         <div class="step-label"><span class="step-num">1</span>ビーコン検索</div>
-        <div class="search-bar">
-          <input id="beaconName" type="text" placeholder="ビーコン名を入力">
-          <button id="searchButton" class="primary" type="button">検索</button>
+        <div class="search-layout">
+          <div class="search-fields">
+            <div class="field">
+              <label for="beaconName">ビーコン名で検索</label>
+              <input id="beaconName" type="text" placeholder="ビーコン名を入力">
+            </div>
+            <div class="field">
+              <label for="staffNoSearch">職員番号で検索</label>
+              <input id="staffNoSearch" type="text" inputmode="numeric" maxlength="6" placeholder="職員番号を入力">
+            </div>
+          </div>
+          <div class="search-actions">
+            <button id="searchButton" class="primary" type="button">検索</button>
+          </div>
         </div>
 
         <div id="message" class="message" aria-live="polite"></div>
@@ -585,6 +624,7 @@
 
     const staffCodeInput = document.getElementById("staffCode");
     const beaconNameInput = document.getElementById("beaconName");
+    const staffNoSearchInput = document.getElementById("staffNoSearch");
     const searchButton = document.getElementById("searchButton");
     const csvButton = document.getElementById("csvButton");
     const messageEl = document.getElementById("message");
@@ -812,8 +852,10 @@
       return text;
     }
 
-    function searchBeaconInfo(workbook, beaconName) {
-      console.log("[SEARCH] ビーコン名=\"" + beaconName + "\" で検索開始");
+    function searchBeaconInfo(workbook, params) {
+      var beaconName = params.beaconName;
+      var staffNo = params.staffNo;
+      console.log("[SEARCH] 検索開始 beacon=\"" + beaconName + "\", staffNo=\"" + staffNo + "\"");
       for (var i = 0; i < workbook.SheetNames.length; i++) {
         var sheetName = workbook.SheetNames[i];
         var rows = XLSX.utils.sheet_to_json(
@@ -825,8 +867,11 @@
           var row = rows[r];
           var mgmtNum = String(row[4] == null ? "" : row[4]).trim();
           var mac = String(row[5] == null ? "" : row[5]).trim();
-          if (mgmtNum === beaconName && mac) {
-            console.log("[SEARCH] ヒット: 行" + (r + 1) + ", E=\"" + mgmtNum + "\", F=\"" + mac + "\"");
+          var rowStaffNo = String(row[6] == null ? "" : row[6]).trim();
+          var hitByBeacon = beaconName && mgmtNum === beaconName;
+          var hitByStaffNo = staffNo && rowStaffNo === staffNo;
+          if ((hitByBeacon || hitByStaffNo) && mac) {
+            console.log("[SEARCH] ヒット: 行" + (r + 1) + ", E=\"" + mgmtNum + "\", F=\"" + mac + "\", G=\"" + rowStaffNo + "\"");
             var cell = function(idx) { return String(row[idx] == null ? "" : row[idx]).trim(); };
             var owner = {
               staffNo:   cell(6),
@@ -839,7 +884,7 @@
             };
             var hasOwner = owner.staffNo || owner.lastName || owner.id;
             console.log("[SEARCH] 紐づき情報:", hasOwner ? JSON.stringify(owner) : "なし");
-            return { mac: mac, owner: hasOwner ? owner : null };
+            return { beaconName: mgmtNum, mac: mac, owner: hasOwner ? owner : null };
           }
         }
       }
@@ -875,13 +920,19 @@
     linkNow.addEventListener("change", updateFutureDateVisibility);
     linkFuture.addEventListener("change", updateFutureDateVisibility);
     beaconNameInput.addEventListener("input", resetResult);
+    staffNoSearchInput.addEventListener("input", function () {
+      staffNoSearchInput.value = normalizeStaffCode(staffNoSearchInput.value);
+      resetResult();
+    });
 
     searchButton.addEventListener("click", function () {
       console.log("[UI] 検索ボタン押下");
       var beaconName = beaconNameInput.value.trim();
-      if (!beaconName) {
+      var staffNo = normalizeStaffCode(staffNoSearchInput.value.trim());
+      staffNoSearchInput.value = staffNo;
+      if (!beaconName && !staffNo) {
         resetResult();
-        setMessage("ビーコン名を入力してください。", "error");
+        setMessage("ビーコン名または職員番号を入力してください。", "error");
         beaconNameInput.focus();
         return;
       }
@@ -893,14 +944,17 @@
       setMessage("検索中です…", "");
       csvButton.disabled = true;
 
-      var result = searchBeaconInfo(cachedWorkbook, beaconName);
+      var result = searchBeaconInfo(cachedWorkbook, {
+        beaconName: beaconName,
+        staffNo: staffNo
+      });
       if (!result) {
         resetResult();
         setMessage("該当するMACアドレスは見つかりませんでした。", "error");
         return;
       }
 
-      state.beaconName = beaconName;
+      state.beaconName = result.beaconName;
       state.macAddress = result.mac;
       macAddressSpan.textContent = result.mac;
       resultSection.classList.remove("hidden");
