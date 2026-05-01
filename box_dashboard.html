@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Box管理ツール ダッシュボード</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>" />
+  <style>
+    :root {
+      --bg:#ffffff; --fg:#111; --panel:#f3f4f6; --text:#0f172a; --muted:#666;
+      --accent:#2b6cb0; --border:#e5e7eb; --surface:#f3f4f6; --radius:16px;
+      --shadow:0 10px 26px rgba(15,23,42,.10), 0 2px 8px rgba(15,23,42,.06);
+      --pad:18px; --sidebar-width:280px;
+    }
+    * { box-sizing: border-box; }
+    html { scrollbar-gutter: stable; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; background:var(--panel); color:var(--text); line-height:1.6; display:flex; min-height:100vh; }
+    
+    /* Sidebar */
+    .sidebar { width:var(--sidebar-width); background:white; box-shadow:2px 0 8px rgba(0,0,0,0.05); padding:20px; overflow-y:auto; transition:all 0.3s; }
+    .sidebar.collapsed { width:60px; }
+    .sidebar.collapsed .nav-text { display:none; }
+    .sidebar.collapsed .nav-item { justify-content:center; }
+    .sidebar-header { display:flex; align-items:center; gap:12px; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid var(--border); }
+    .sidebar-header h2 { font-size:18px; margin:0; color:var(--accent); white-space:nowrap; }
+    .toggle-btn { background:none; border:none; font-size:24px; cursor:pointer; padding:4px; }
+    .nav-item { position:relative; display:flex; align-items:center; gap:12px; padding:12px; border-radius:8px; cursor:pointer; transition:all 0.2s; text-decoration:none; color:var(--text); margin-bottom:8px; }
+    .nav-item:hover { background:var(--panel); }
+    .nav-item.active { background:var(--accent); color:white; }
+    .nav-icon { font-size:24px; }
+    .nav-text { font-size:14px; font-weight:500; white-space:nowrap; }
+    .tooltip { position:absolute; left:calc(100% + 12px); top:50%; transform:translateY(-50%); background:#0f172a; color:white; padding:10px 12px; border-radius:10px; box-shadow:0 10px 20px rgba(0,0,0,0.15); opacity:0; pointer-events:none; transition:opacity 0.15s ease; white-space:normal; max-width:260px; font-size:13px; line-height:1.4; z-index:10; }
+    .nav-item:hover .tooltip { opacity:1; }
+    
+    /* Main content */
+    .main-content { flex:1; padding:40px; overflow-y:auto; }
+    .container { max-width:1400px; margin:0 auto; }
+    header { text-align:center; margin-bottom:40px; }
+    h1 { font-size:32px; font-weight:700; margin:0 0 8px; color:var(--accent); }
+    .description { font-size:16px; color:var(--muted); margin:0; }
+    .card { background:var(--bg); border-radius:var(--radius); padding:var(--pad); margin-bottom:24px; box-shadow:var(--shadow); }
+    h2 { font-size:20px; font-weight:600; margin:0 0 16px; color:var(--accent); }
+    .muted { color:var(--muted); font-size:14px; }
+    .field { display:flex; flex-direction:column; margin-bottom:12px; }
+    .field label { font-weight:500; margin-bottom:6px; color:var(--text); }
+    .field input, .field select { padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:white; }
+    .field input:focus, .field select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(43,108,176,0.1); }
+    .row { display:flex; gap:16px; align-items:end; flex-wrap:wrap; }
+    button { padding:10px 20px; border:none; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; transition:all 0.2s; }
+    .primary { background:var(--accent); color:white; }
+    .primary:hover { background:#1e40af; transform:translateY(-1px); }
+    .secondary { background:#f3f4f6; color:#374151; border:1px solid var(--border); }
+    .secondary:hover { background:#e5e7eb; }
+    
+    .status { padding:12px; border-radius:8px; margin:8px 0; font-weight:500; min-height:32px; }
+    .error { color:#dc2626; }
+    .success { color:#16a34a; }
+    .info { color:#0284c7; }
+    .status-details { margin-top:12px; padding:12px; background:#f0f9ff; border-left:4px solid #0284c7; border-radius:6px; font-size:13px; line-height:1.6; }
+    .status-details.error { background:#fef2f2; border-color:#dc2626; }
+    .status-details.success { background:#f0fdf4; border-color:#16a34a; }
+    .status-detail-row { display:flex; gap:12px; margin-bottom:6px; }
+    .status-detail-label { font-weight:600; min-width:120px; color:var(--text); }
+    .status-detail-value { color:var(--text); }
+    .expiry-warning { color:#ea580c; font-weight:600; }
+    .expiry-expired { color:#dc2626; font-weight:600; }
+    .table-wrapper { border:1px solid var(--border); border-radius:12px; overflow:auto; background:white; box-shadow:var(--shadow); }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:10px; border-bottom:1px solid var(--border); text-align:left; font-size:13px; }
+    th { background:#f8fafc; color:var(--muted); font-weight:600; position:sticky; top:0; z-index:1; }
+    tr:hover td { background:#f8fafc; }
+    .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; border:1px solid #cbd5e1; color:#1f2937; background:#f8fafc; }
+    .actions { white-space:nowrap; }
+    .actions a { color:var(--accent); text-decoration:none; font-weight:600; }
+    .actions a:hover { text-decoration:underline; }
+    .pagination { display:flex; justify-content:center; align-items:center; gap:12px; margin-top:16px; }
+    .pagination button { padding:8px 16px; }
+    .pagination button:disabled { opacity:0.4; cursor:not-allowed; }
+    .pagination .page-info { color:var(--muted); font-size:14px; }
+    .highlight { background:#ffeb3b; font-weight:600; padding:2px 4px; border-radius:3px; }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+      <h2>Box管理ツール</h2>
+    </div>
+    <a href="box_dashboard.html" class="nav-item active">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-text">ダッシュボード</span>
+      <span class="tooltip">Box内検索を実行するメイン画面です。</span>
+    </a>
+    <a href="#" onclick="navigateWithSettings('box_tree_generator.html'); return false;" class="nav-item">
+      <span class="nav-icon">🌳</span>
+      <span class="nav-text">フォルダツリー生成</span>
+      <span class="tooltip">指定フォルダ配下のフォルダ構造を再帰的に収集し、Excel出力します。</span>
+    </a>
+    <a href="#" onclick="navigateWithSettings('box_share_links.html'); return false;" class="nav-item">
+      <span class="nav-icon">🔗</span>
+      <span class="nav-text">共有リンク生成</span>
+      <span class="tooltip">フォルダ・ファイルを選択し、共有リンクを一括で生成します。</span>
+    </a>
+    <a href="#" onclick="navigateWithSettings('box_file_overwrite.html'); return false;" class="nav-item">
+      <span class="nav-icon">📤</span>
+      <span class="nav-text">ファイル上書き</span>
+      <span class="tooltip">既存ファイルの内容を別ファイルで置換します。</span>
+    </a>
+    <a href="#" onclick="navigateWithSettings('box_api_capabilities.html'); return false;" class="nav-item">
+      <span class="nav-icon">📘</span>
+      <span class="nav-text">API機能一覧</span>
+      <span class="tooltip">Box公式APIの主な機能をカテゴリ別にまとめたリファレンスです。</span>
+    </a>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <div class="container">
+      <header>
+        <h1>📦 Box管理ツール</h1>
+        <div class="description">Box APIを使った各種管理機能</div>
+      </header>
+
+      <section class="card">
+        <h2>📡 接続設定</h2>
+        <div class="row">
+          <div class="field" style="flex:1; margin-bottom:0;">
+            <label for="token">アクセストークン</label>
+            <input id="token" type="text" placeholder="例: eyJhbGciOi..." />
+          </div>
+          <div class="field" style="flex:1; margin-bottom:0;">
+            <label for="folderId">検索対象フォルダID（オプション）</label>
+            <input id="folderId" type="text" placeholder="例: 0（ルート）" value="0" />
+          </div>
+          <div class="field" style="flex:0 0 auto; margin-bottom:0; display:flex; align-items:flex-end;">
+            <button id="testConnectionBtn" class="secondary" style="white-space:nowrap;">🔌 疎通確認</button>
+          </div>
+        </div>
+        <div id="status" class="status" style="visibility:hidden;"></div>
+      </section>
+
+      <section class="card">
+        <h2>🔍 Box内を検索</h2>
+        <div class="row">
+          <div class="field" style="flex:2;">
+            <label for="searchQuery">キーワード</label>
+            <input id="searchQuery" type="text" placeholder="例: 契約書 2024" />
+          </div>
+          <div class="field" style="flex:1;">
+            <label for="searchType">種別</label>
+            <select id="searchType">
+              <option value="">ファイル/フォルダ</option>
+              <option value="file">ファイルのみ</option>
+              <option value="folder">フォルダのみ</option>
+            </select>
+          </div>
+          <div class="field" style="flex:0 0 120px;">
+            <label for="searchLimit">1ページ件数</label>
+            <input id="searchLimit" type="number" min="1" max="200" value="20" />
+          </div>
+        </div>
+        <div class="row" style="align-items:center;">
+          <div class="field" style="flex:1; margin-bottom:0;">
+            <label><input type="checkbox" id="useFolderScope" checked /> 指定フォルダ配下に限定</label>
+            <div class="muted">フォルダID未入力 or 0 の場合は全体検索になります。</div>
+          </div>
+          <div class="field" style="flex:0 0 auto; margin-bottom:0;">
+            <label><input type="checkbox" id="highlightToggle" checked /> キーワードをハイライト表示</label>
+          </div>
+          <div class="field" style="flex:0 0 auto; margin-bottom:0; display:flex; align-items:flex-end;">
+            <button id="searchBtn" class="primary" style="white-space:nowrap;">🔍 検索</button>
+          </div>
+        </div>
+        <div id="searchStatus" class="status" style="visibility:hidden;"></div>
+      </section>
+
+      <section class="card">
+        <h2>📄 検索結果</h2>
+        <div class="pagination" id="paginationTop" style="display:none; margin-bottom:16px;">
+          <button id="prevBtnTop" class="secondary">← 前へ</button>
+          <span class="page-info" id="pageInfoTop"></span>
+          <button id="nextBtnTop" class="secondary">次へ →</button>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:50px;">種別</th>
+                <th>名前</th>
+                <th style="width:120px;">更新日</th>
+                <th style="width:90px;">サイズ</th>
+                <th>パス</th>
+                <th style="width:160px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody">
+              <tr><td colspan="6" class="muted">検索条件を入力して「検索」を押してください。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination" style="display:none;">
+          <button id="prevBtn" class="secondary">← 前へ</button>
+          <span class="page-info" id="pageInfo"></span>
+          <button id="nextBtn" class="secondary">次へ →</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-base64/3.7.5/js-base64.min.js"></script>
+  <script>
+    const tokenEl = document.getElementById('token');
+    const folderIdEl = document.getElementById('folderId');
+    const statusEl = document.getElementById('status');
+    const testConnectionBtn = document.getElementById('testConnectionBtn');
+    const searchQueryEl = document.getElementById('searchQuery');
+    const searchTypeEl = document.getElementById('searchType');
+    const searchLimitEl = document.getElementById('searchLimit');
+    const useFolderScopeEl = document.getElementById('useFolderScope');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchStatusEl = document.getElementById('searchStatus');
+    const resultsBody = document.getElementById('resultsBody');
+    const paginationEl = document.getElementById('pagination');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const pageInfoEl = document.getElementById('pageInfo');
+    const paginationTopEl = document.getElementById('paginationTop');
+    const prevBtnTop = document.getElementById('prevBtnTop');
+    const nextBtnTop = document.getElementById('nextBtnTop');
+    const pageInfoTopEl = document.getElementById('pageInfoTop');
+    const highlightToggleEl = document.getElementById('highlightToggle');
+    const TOKEN_SERVER_URL = 'http://localhost:5000/api/token';
+
+    let useTokenServer = false;
+    let cachedToken = null;
+    let tokenExpireTime = null;
+
+    let allResults = [];
+    let currentPage = 0;
+    let itemsPerPage = 20;
+    let currentSearchQuery = '';
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+    }
+
+    // トークン・フォルダIDをlocalStorageに保存
+    function saveSettings() {
+      localStorage.setItem('boxToken', tokenEl.value);
+      localStorage.setItem('boxFolderId', folderIdEl.value);
+    }
+
+    function navigateWithSettings(url) {
+      saveSettings();
+      window.location.href = url;
+    }
+
+    async function checkTokenServerAvailability() {
+      try {
+        const res = await fetch(TOKEN_SERVER_URL.replace('/api/token', '/api/status'));
+        useTokenServer = res.ok;
+      } catch (e) {
+        useTokenServer = false;
+      }
+    }
+
+    async function getTokenFromServer() {
+      if (!useTokenServer) throw new Error('トークンサーバーが利用できません');
+
+      if (cachedToken && tokenExpireTime && Date.now() < tokenExpireTime) return cachedToken;
+
+      const res = await fetch(TOKEN_SERVER_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'トークン取得に失敗しました');
+
+      cachedToken = data.access_token;
+      tokenExpireTime = Date.now() + (data.expires_in * 1000 * 0.8);
+      tokenEl.value = cachedToken;
+      localStorage.setItem('boxToken', cachedToken);
+      return cachedToken;
+    }
+
+    async function acquireToken() {
+      if (useTokenServer) {
+        return await getTokenFromServer();
+      }
+      const token = tokenEl.value.trim();
+      if (!token) throw new Error('アクセストークンを入力してください。');
+      return token;
+    }
+
+    // 設定を読み込み
+    function loadSettings() {
+      const savedToken = localStorage.getItem('boxToken');
+      const savedFolderId = localStorage.getItem('boxFolderId');
+      if (savedToken) tokenEl.value = savedToken;
+      if (savedFolderId) folderIdEl.value = savedFolderId;
+    }
+
+    async function init() {
+      loadSettings();
+      statusEl.style.visibility = 'hidden';
+      searchStatusEl.style.visibility = 'hidden';
+
+      await checkTokenServerAvailability();
+      if (useTokenServer) {
+        try {
+          await getTokenFromServer();
+          showStatus('🔄 トークンサーバーからトークンを自動取得しました', 'success');
+        } catch (e) {
+          showStatus('トークンサーバーからの取得に失敗しました: ' + e.message, 'error');
+        }
+      }
+    }
+
+    // 疎通確認
+    async function testConnection() {
+      let token;
+      try {
+        token = await acquireToken();
+      } catch (err) {
+        showStatus(err.message, 'error');
+        return;
+      }
+      const folderId = folderIdEl.value.trim() || '0';
+
+      showStatus('疎通確認中...', 'info');
+      testConnectionBtn.disabled = true;
+
+      try {
+        // JWT トークン有効期限を取得
+        const expiryInfo = getTokenExpiryInfo(token);
+        let expiryDetailsHtml = '';
+        if (expiryInfo) {
+          const expiryClass = expiryInfo.isExpired ? 'expiry-expired' : (expiryInfo.remainingMs < 86400000 ? 'expiry-warning' : '');
+          expiryDetailsHtml += `<div class="status-detail-row"><span class="status-detail-label">有効期限:</span><span class="status-detail-value ${expiryClass}">${expiryInfo.expireAt} (残り: ${expiryInfo.expiresIn})</span></div>`;
+        }
+
+        // ユーザー情報を取得
+        const userUrl = 'https://api.box.com/2.0/users/me?fields=id,name,email,login';
+        const userRes = await fetch(userUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!userRes.ok) {
+          const text = await userRes.text();
+          throw new Error(`HTTP ${userRes.status} - トークンが無効またはアクセス権限がありません`);
+        }
+
+        const userData = await userRes.json();
+
+        // フォルダ情報を取得
+        const folderUrl = `https://api.box.com/2.0/folders/${encodeURIComponent(folderId)}?fields=id,name`;
+        const folderRes = await fetch(folderUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!folderRes.ok) {
+          throw new Error(`フォルダID ${folderId} が見つかりません`);
+        }
+
+        const folderData = await folderRes.json();
+
+        // 詳細情報を表示
+        let detailsHtml = '';
+        detailsHtml += `<div class="status-detail-row"><span class="status-detail-label">ユーザー:</span><span class="status-detail-value">${userData.name} (${userData.email || userData.login})</span></div>`;
+        detailsHtml += `<div class="status-detail-row"><span class="status-detail-label">User ID:</span><span class="status-detail-value">${userData.id}</span></div>`;
+        detailsHtml += `<div class="status-detail-row"><span class="status-detail-label">検索対象:</span><span class="status-detail-value">${folderData.name} (ID: ${folderData.id})</span></div>`;
+        detailsHtml += expiryDetailsHtml;
+        
+        showStatusWithDetails('✅ 疎通成功！', 'success', detailsHtml);
+        saveSettings();
+      } catch (err) {
+        console.error(err);
+        showStatus(`❌ 疎通失敗: ${err.message}`, 'error');
+      } finally {
+        testConnectionBtn.disabled = false;
+      }
+    }
+
+    function showStatus(message, type = 'info') {
+      statusEl.textContent = message;
+      statusEl.style.visibility = 'visible';
+      statusEl.className = 'status ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : 'info');
+      statusEl.innerHTML = message;
+    }
+
+    function showStatusWithDetails(message, type, details) {
+      statusEl.innerHTML = message;
+      statusEl.style.visibility = 'visible';
+      statusEl.className = 'status ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : 'info');
+      
+      if (details) {
+        const detailsDiv = document.createElement('div');
+        detailsDiv.className = `status-details ${type}`;
+        detailsDiv.innerHTML = details;
+        statusEl.appendChild(detailsDiv);
+      }
+    }
+
+    function decodeJWT(token) {
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        
+        const payload = parts[1];
+        // Base64 decode (標準ブラウザ関数)
+        const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+        return decoded;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getTokenExpiryInfo(token) {
+      const decoded = decodeJWT(token);
+      if (!decoded || !decoded.exp) return null;
+      
+      const expiryTime = decoded.exp * 1000;
+      const now = Date.now();
+      const remaining = expiryTime - now;
+      
+      return {
+        expireAt: new Date(expiryTime).toLocaleString('ja-JP'),
+        remainingMs: remaining,
+        isExpired: remaining <= 0,
+        expiresIn: formatDuration(remaining)
+      };
+    }
+
+    function formatDuration(ms) {
+      if (ms <= 0) return '失効';
+      
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      
+      if (days > 0) return `${days}日${hours % 24}時間`;
+      if (hours > 0) return `${hours}時間${minutes % 60}分`;
+      if (minutes > 0) return `${minutes}分${seconds % 60}秒`;
+      return `${seconds}秒`;
+    }
+
+    function goToShareLinks(itemId, itemName, itemType) {
+      if (itemType === 'folder') {
+        goToShareLinksWithFolderContents(itemId, itemName);
+      } else {
+        const selectedItems = [{id: itemId, name: itemName, type: itemType}];
+        sessionStorage.setItem('selectedItems', JSON.stringify(selectedItems));
+        sessionStorage.setItem('boxToken', tokenEl.value.trim());
+        window.location.href = 'box_share_links.html';
+      }
+    }
+
+    async function goToShareLinksWithFolderContents(folderId, folderName) {
+      const token = tokenEl.value.trim();
+      if (!token) {
+        showStatus('アクセストークンを入力してください。', 'error');
+        return;
+      }
+      try {
+        const items = await fetchFolderContents(token, folderId);
+        sessionStorage.setItem('selectedItems', JSON.stringify(items));
+        sessionStorage.setItem('boxToken', token);
+        window.location.href = 'box_share_links.html';
+      } catch (err) {
+        console.error(err);
+        showStatus(`フォルダ内容の取得に失敗しました: ${err.message}`, 'error');
+      }
+    }
+
+    async function fetchFolderContents(token, folderId, maxDepth = 2, currentDepth = 0) {
+      const items = [];
+      if (currentDepth >= maxDepth) return items;
+      try {
+        const url = new URL(`https://api.box.com/2.0/folders/${encodeURIComponent(folderId)}/items`);
+        url.searchParams.set('limit', '1000');
+        url.searchParams.set('fields', 'name,type,id');
+        const res = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {'Authorization': `Bearer ${token}`, 'Accept': 'application/json'}
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const entries = data.entries || [];
+        for (const entry of entries) {
+          items.push({id: entry.id, name: entry.name, type: entry.type});
+          if (entry.type === 'folder' && currentDepth < maxDepth - 1) {
+            const subItems = await fetchFolderContents(token, entry.id, maxDepth, currentDepth + 1);
+            items.push(...subItems);
+          }
+        }
+      } catch (err) {
+        console.warn(`フォルダ ${folderId} からの取得エラー:`, err);
+      }
+      return items;
+    }
+
+    function setSearchStatus(message, type = 'info') {
+      searchStatusEl.textContent = message;
+      searchStatusEl.style.visibility = 'visible';
+      searchStatusEl.className = 'status ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : '');
+    }
+
+    function highlightText(text, query) {
+      if (!query || !text || !highlightToggleEl.checked) return text;
+      const keywords = query.trim().split(/\s+/).filter(k => k.length > 0);
+      let result = String(text);
+      keywords.forEach(keyword => {
+        const regex = new RegExp(`(${escapeRegex(keyword)})`, 'gi');
+        result = result.replace(regex, '<span class="highlight">$1</span>');
+      });
+      return result;
+    }
+
+    function escapeRegex(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function renderResults(entries) {
+      allResults = entries || [];
+      currentPage = 0;
+      itemsPerPage = Math.max(1, Math.min(200, parseInt(searchLimitEl.value, 10) || 20));
+      currentSearchQuery = searchQueryEl.value.trim();
+      
+      if (allResults.length === 0) {
+        resultsBody.innerHTML = '<tr><td colspan="6" class="muted">該当なし</td></tr>';
+        paginationEl.style.display = 'none';
+        paginationTopEl.style.display = 'none';
+        return;
+      }
+
+      renderPage();
+    }
+
+    function renderPage() {
+      const start = currentPage * itemsPerPage;
+      const end = start + itemsPerPage;
+      const pageItems = allResults.slice(start, end);
+
+      const rows = pageItems.map(item => {
+        const isFolder = item.type === 'folder';
+        const icon = isFolder ? '📁' : '📄';
+        const size = isFolder ? '-' : formatSize(item.size);
+        const pathParts = (item.path_collection?.entries || []).map(p => p.name).filter(Boolean);
+        const path = pathParts.length ? '/' + pathParts.join('/') + '/' : '/';
+        const modified = item.modified_at ? formatDate(item.modified_at) : '-';
+        const appLink = isFolder ? `https://app.box.com/folder/${item.id}` : `https://app.box.com/file/${item.id}`;
+        
+        const highlightedName = highlightText(item.name || '-', currentSearchQuery);
+        const highlightedPath = highlightText(path, currentSearchQuery);
+        
+        return `<tr>
+          <td style="text-align:center; font-size:24px;">${icon}</td>
+          <td>${highlightedName}</td>
+          <td>${modified}</td>
+          <td>${size}</td>
+          <td style="word-break:break-all;">${highlightedPath}</td>
+          <td class="actions">
+            <a href="${appLink}" target="_blank" rel="noopener">開く</a>
+            <span style="margin: 0 4px; color:#999;">/</span>
+            <a href="javascript:void(0)" style="cursor:pointer;" onclick="goToShareLinks('${item.id}', '${item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${item.type}')">🔗 共有</a>
+          </td>
+        </tr>`;
+      }).join('');
+
+      resultsBody.innerHTML = rows;
+
+      // ページング表示更新
+      const totalPages = Math.ceil(allResults.length / itemsPerPage);
+      const pageText = `${currentPage + 1} / ${totalPages} ページ (全${allResults.length}件)`;
+      const showPagination = totalPages > 1;
+      
+      pageInfoEl.textContent = pageText;
+      pageInfoTopEl.textContent = pageText;
+      
+      prevBtn.disabled = currentPage === 0;
+      prevBtnTop.disabled = currentPage === 0;
+      
+      nextBtn.disabled = currentPage >= totalPages - 1;
+      nextBtnTop.disabled = currentPage >= totalPages - 1;
+      
+      paginationEl.style.display = showPagination ? 'flex' : 'none';
+      paginationTopEl.style.display = showPagination ? 'flex' : 'none';
+    }
+
+    function formatSize(bytes) {
+      if (!bytes && bytes !== 0) return '-';
+      const units = ['B','KB','MB','GB','TB'];
+      let val = bytes;
+      let idx = 0;
+      while (val >= 1024 && idx < units.length - 1) {
+        val /= 1024;
+        idx++;
+      }
+      return `${val.toFixed(val >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+    }
+
+    function formatDate(iso) {
+      try {
+        const d = new Date(iso);
+        return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('ja-JP');
+      } catch {
+        return '-';
+      }
+    }
+
+    async function runSearch() {
+      let token;
+      const query = searchQueryEl.value.trim();
+      const type = searchTypeEl.value;
+      const folderId = folderIdEl.value.trim();
+      const useFolderScope = useFolderScopeEl.checked && folderId !== '';
+
+      try {
+        token = await acquireToken();
+      } catch (err) {
+        setSearchStatus(err.message, 'error');
+        return;
+      }
+      if (!query) {
+        setSearchStatus('キーワードを入力してください。', 'error');
+        return;
+      }
+
+      setSearchStatus('検索中...', 'info');
+      searchBtn.disabled = true;
+
+      const params = new URLSearchParams();
+      params.set('query', query);
+      params.set('limit', '200'); // API最大値で取得
+      params.set('fields', 'id,name,type,modified_at,size,path_collection');
+      if (type) params.set('type', type);
+      if (useFolderScope && folderId !== '0') params.set('ancestor_folder_ids', folderId);
+
+      try {
+        const res = await fetch(`https://api.box.com/2.0/search?${params.toString()}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`HTTP ${res.status} - ${text}`);
+        }
+
+        const data = await res.json();
+        renderResults(data.entries || []);
+        setSearchStatus(`検索完了 (${(data.entries || []).length}件)`, 'success');
+        saveSettings();
+      } catch (err) {
+        console.error(err);
+        setSearchStatus(`検索に失敗しました: ${err.message}`, 'error');
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    // 入力時に自動保存
+    tokenEl.addEventListener('input', saveSettings);
+    folderIdEl.addEventListener('input', saveSettings);
+
+    // 疎通確認ボタン
+    testConnectionBtn.addEventListener('click', testConnection);
+    // 検索ボタン
+    searchBtn.addEventListener('click', runSearch);
+
+    // ページングボタン（下部）
+    prevBtn.addEventListener('click', () => {
+      if (currentPage > 0) {
+        currentPage--;
+        renderPage();
+      }
+    });
+
+    nextBtn.addEventListener('click', () => {
+      const totalPages = Math.ceil(allResults.length / itemsPerPage);
+      if (currentPage < totalPages - 1) {
+        currentPage++;
+        renderPage();
+      }
+    });
+
+    // ページングボタン（上部）
+    prevBtnTop.addEventListener('click', () => {
+      if (currentPage > 0) {
+        currentPage--;
+        renderPage();
+      }
+    });
+
+    nextBtnTop.addEventListener('click', () => {
+      const totalPages = Math.ceil(allResults.length / itemsPerPage);
+      if (currentPage < totalPages - 1) {
+        currentPage++;
+        renderPage();
+      }
+    });
+
+    // Enterキーで検索
+    searchQueryEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
+
+    // ハイライト設定変更時に再描画
+    highlightToggleEl.addEventListener('change', () => {
+      if (allResults.length > 0) {
+        renderPage();
+      }
+    });
+
+    // ページ読み込み時に設定を復元 + トークン自動取得
+    init();
+  </script>
+</body>
+</html>
