@@ -560,7 +560,7 @@
   <div class="container">
     <div class="card">
       <div class="header">
-        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.2</span></h1>
+        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.3</span></h1>
         <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
       </div>
 
@@ -982,6 +982,13 @@
       futureDateField.classList.toggle("hidden", mode !== "future-link" && mode !== "future-unlink");
     }
 
+    function updateModeButtons() {
+      // 現在ビーコンが紐づいている場合 → いますぐ登録をdisable
+      document.getElementById("modeNowLink").disabled = state.currentOwner !== null;
+      // 現在ビーコンが紐づいていない場合 → いますぐ解除をdisable
+      document.getElementById("modeNowUnlink").disabled = state.currentOwner === null;
+    }
+
     function resetResult() {
       state.currentBeaconName = "";
       state.currentMacAddress = "";
@@ -1002,6 +1009,8 @@
       document.getElementById("importGuide").classList.add("hidden");
       csvButton.disabled = true;
       document.getElementById("modeNowLink").checked = true;
+      document.getElementById("modeNowLink").disabled = false;
+      document.getElementById("modeNowUnlink").disabled = false;
       updateFutureDateVisibility();
       reservationDateInput.value = "";
     }
@@ -1137,6 +1146,7 @@
         resultSection.classList.remove("hidden");
         document.getElementById("csvSection").classList.remove("hidden");
         csvButton.disabled = false;
+        updateModeButtons();
         updateFutureDateVisibility();
 
         var ownerInfoEl = document.getElementById("ownerInfo");
