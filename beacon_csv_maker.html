@@ -579,7 +579,7 @@
   <div class="container">
     <div class="card">
       <div class="header">
-        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.8</span></h1>
+        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.9</span></h1>
         <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
       </div>
 
@@ -1170,6 +1170,7 @@
       });
       if (!result) {
         if (state.hasSearchedOnce) {
+          csvButton.disabled = false;
           // 未来ビーコン検索で失敗
           setMessage("該当するMACアドレスは見つかりませんでした。", "error");
         } else {
@@ -1179,6 +1180,8 @@
         }
         return;
       }
+
+      csvButton.disabled = false;
 
       // 最初の検索 → 現在ビーコン
       if (!state.hasSearchedOnce) {
