@@ -606,8 +606,9 @@
 
         <div id="message" class="message" aria-live="polite"></div>
 
-        <!-- 検索結果 -->
+        <!-- 検索結果：現在ビーコン -->
         <div id="resultSection" class="result hidden">
+          <div style="font-weight:700;font-size:0.95rem;color:var(--accent-strong);">現在ビーコン</div>
           <div class="result-row">
             <span>MACアドレス</span>
             <span id="macAddress" class="pill"></span>
@@ -623,6 +624,25 @@
               <dt>せい</dt><dd id="ownerLastKana"></dd>
               <dt>めい</dt><dd id="ownerFirstKana"></dd>
               <dt>ID</dt><dd id="ownerId"></dd>
+            </dl>
+          </div>
+        </div>
+
+        <!-- 検索結果：未来ビーコン -->
+        <div id="futureResultSection" class="result hidden">
+          <div style="font-weight:700;font-size:0.95rem;color:var(--accent-strong);">未来ビーコン</div>
+          <div class="result-row">
+            <span>MACアドレス</span>
+            <span id="futureMacAddress" class="pill"></span>
+          </div>
+
+          <div id="futureOwnerInfo" class="owner-info hidden">
+            <div class="owner-label">⚠ このビーコンは以下の方に紐づいています</div>
+            <dl class="owner-grid">
+              <dt>職員番号</dt><dd id="futureOwnerStaffNo"></dd>
+              <dt>所属</dt><dd id="futureOwnerDept"></dd>
+              <dt>姓</dt><dd id="futureOwnerLastName"></dd>
+              <dt>名</dt><dd id="futureOwnerFirstName"></dd>
             </dl>
           </div>
         </div>
@@ -753,6 +773,8 @@
     const messageEl = document.getElementById("message");
     const resultSection = document.getElementById("resultSection");
     const macAddressSpan = document.getElementById("macAddress");
+    const futureResultSection = document.getElementById("futureResultSection");
+    const futureMacAddressSpan = document.getElementById("futureMacAddress");
     const futureDateField = document.getElementById("futureDateField");
     const reservationDateInput = document.getElementById("reservationDate");
 
@@ -770,8 +792,15 @@
     let cachedWorkbook = null;
 
     const state = {
-      beaconName: "",
-      macAddress: ""
+      // 現在ビーコン
+      currentBeaconName: "",
+      currentMacAddress: "",
+      currentOwner: null,
+      // 未来ビーコン
+      futureBeaconName: "",
+      futureMacAddress: "",
+      // 検索状態
+      hasSearchedOnce: false
     };
 
     /* ========================================================
@@ -954,11 +983,21 @@
     }
 
     function resetResult() {
-      state.beaconName = "";
-      state.macAddress = "";
+      state.currentBeaconName = "";
+      state.currentMacAddress = "";
+      state.currentOwner = null;
+      state.futureBeaconName = "";
+      state.futureMacAddress = "";
+      state.hasSearchedOnce = false;
+      
       macAddressSpan.textContent = "";
       resultSection.classList.add("hidden");
       document.getElementById("ownerInfo").classList.add("hidden");
+      
+      futureMacAddressSpan.textContent = "";
+      futureResultSection.classList.add("hidden");
+      document.getElementById("futureOwnerInfo").classList.add("hidden");
+      
       document.getElementById("csvSection").classList.add("hidden");
       document.getElementById("importGuide").classList.add("hidden");
       csvButton.disabled = true;
@@ -1023,13 +1062,13 @@
       return [
         staffCodeInput.value,
         "",
-        isNow  && isLink ? state.beaconName  : "",
-        isNow  && isLink ? state.macAddress  : "",
+        isNow  && isLink ? state.currentBeaconName  : "",
+        isNow  && isLink ? state.currentMacAddress  : "",
         "",
         "",
         isFuture ? reservationDateInput.value : "",
-        isFuture && isLink ? state.beaconName : "",
-        isFuture && isLink ? state.macAddress : "",
+        isFuture && isLink ? state.futureBeaconName : "",
+        isFuture && isLink ? state.futureMacAddress : "",
         ""
       ];
     }
@@ -1076,33 +1115,71 @@
         staffNo: staffNo
       });
       if (!result) {
-        resetResult();
-        setMessage("該当するMACアドレスは見つかりませんでした。", "error");
+        if (state.hasSearchedOnce) {
+          // 未来ビーコン検索で失敗
+          setMessage("該当するMACアドレスは見つかりませんでした。", "error");
+        } else {
+          // 現在ビーコン検索で失敗
+          resetResult();
+          setMessage("該当するMACアドレスは見つかりませんでした。", "error");
+        }
         return;
       }
 
-      state.beaconName = result.beaconName;
-      state.macAddress = result.mac;
-      macAddressSpan.textContent = result.mac;
-      resultSection.classList.remove("hidden");
-      document.getElementById("csvSection").classList.remove("hidden");
-      csvButton.disabled = false;
-      updateFutureDateVisibility();
+      // 最初の検索 → 現在ビーコン
+      if (!state.hasSearchedOnce) {
+        state.hasSearchedOnce = true;
+        state.currentBeaconName = result.beaconName;
+        state.currentMacAddress = result.mac;
+        state.currentOwner = result.owner;
+        
+        macAddressSpan.textContent = result.mac;
+        resultSection.classList.remove("hidden");
+        document.getElementById("csvSection").classList.remove("hidden");
+        csvButton.disabled = false;
+        updateFutureDateVisibility();
 
-      var ownerInfoEl = document.getElementById("ownerInfo");
-      if (result.owner) {
-        document.getElementById("ownerStaffNo").textContent = result.owner.staffNo;
-        document.getElementById("ownerDept").textContent = result.owner.dept;
-        document.getElementById("ownerLastName").textContent = result.owner.lastName;
-        document.getElementById("ownerFirstName").textContent = result.owner.firstName;
-        document.getElementById("ownerLastKana").textContent = result.owner.lastKana;
-        document.getElementById("ownerFirstKana").textContent = result.owner.firstKana;
-        document.getElementById("ownerId").textContent = result.owner.id;
-        ownerInfoEl.classList.remove("hidden");
-        setMessage("MACアドレスを取得しました。（現在紐づき中）", "success");
-      } else {
-        ownerInfoEl.classList.add("hidden");
-        setMessage("MACアドレスを取得しました。（未紐づけ）", "success");
+        var ownerInfoEl = document.getElementById("ownerInfo");
+        if (result.owner) {
+          document.getElementById("ownerStaffNo").textContent = result.owner.staffNo;
+          document.getElementById("ownerDept").textContent = result.owner.dept;
+          document.getElementById("ownerLastName").textContent = result.owner.lastName;
+          document.getElementById("ownerFirstName").textContent = result.owner.firstName;
+          document.getElementById("ownerLastKana").textContent = result.owner.lastKana;
+          document.getElementById("ownerFirstKana").textContent = result.owner.firstKana;
+          document.getElementById("ownerId").textContent = result.owner.id;
+          ownerInfoEl.classList.remove("hidden");
+          setMessage("MACアドレスを取得しました。（現在紐づき中）", "success");
+        } else {
+          ownerInfoEl.classList.add("hidden");
+          setMessage("MACアドレスを取得しました。（未紐づけ）", "success");
+        }
+        
+        // 職員番号が取得できていれば自動入力
+        if (result.owner && result.owner.staffNo) {
+          staffCodeInput.value = normalizeStaffCode(result.owner.staffNo).padStart(6, "0");
+        }
+      } 
+      // 2回目以降の検索 → 未来ビーコン
+      else {
+        state.futureBeaconName = result.beaconName;
+        state.futureMacAddress = result.mac;
+        
+        futureMacAddressSpan.textContent = result.mac;
+        futureResultSection.classList.remove("hidden");
+        
+        var futureOwnerInfoEl = document.getElementById("futureOwnerInfo");
+        if (result.owner) {
+          document.getElementById("futureOwnerStaffNo").textContent = result.owner.staffNo;
+          document.getElementById("futureOwnerDept").textContent = result.owner.dept;
+          document.getElementById("futureOwnerLastName").textContent = result.owner.lastName;
+          document.getElementById("futureOwnerFirstName").textContent = result.owner.firstName;
+          futureOwnerInfoEl.classList.remove("hidden");
+          setMessage("未来ビーコンを設定しました。", "success");
+        } else {
+          futureOwnerInfoEl.classList.add("hidden");
+          setMessage("未来ビーコンを設定しました。", "success");
+        }
       }
     });
 
@@ -1116,12 +1193,19 @@
       }
       staffCodeInput.value = staffCode.padStart(6, "0");
 
-      if (!state.macAddress) {
+      if (!state.currentMacAddress) {
         setMessage("先にビーコン検索を行ってください。", "error");
         return;
       }
 
-      if (getSelectedMode() === "future") {
+      var mode = getSelectedMode();
+      // future-link または future-unlink の場合、未来ビーコンが必須
+      if ((mode === "future-link" || mode === "future-unlink") && !state.futureMacAddress) {
+        setMessage("未来日での操作には、未来ビーコンの検索が必須です。", "error");
+        return;
+      }
+
+      if ((mode === "future-link" || mode === "future-unlink")) {
         if (!reservationDateInput.value) {
           setMessage("未来日で紐づける場合は次回紐付け予約日を入力してください。", "error");
           reservationDateInput.focus();
@@ -1150,7 +1234,7 @@
       var stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
       a.href = url;
       a.download = "beacon_registration_" + stamp + ".csv";
-      console.log("[CSV] 出力:", a.download, "mode=" + getSelectedMode(), "row:", buildCsvRow());
+      console.log("[CSV] 出力:", a.download, "mode=" + mode, "row:", buildCsvRow());
       document.body.appendChild(a);
       a.click();
       a.remove();
