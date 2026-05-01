@@ -578,7 +578,7 @@
   <div class="container">
     <div class="card">
       <div class="header">
-        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.4</span></h1>
+        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.6</span></h1>
         <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
       </div>
 
@@ -728,7 +728,7 @@
           <div id="futureDateField" class="field hidden">
             <label for="reservationDate">次回紐付け予約日</label>
             <input id="reservationDate" type="date">
-            <div class="helper">現在日以降の日付のみ指定できます。</div>
+            <div class="helper">明日以降の日付のみ指定できます。</div>
           </div>
 
           <button id="csvButton" class="primary csv-output-btn" type="button">CSV出力</button>
@@ -805,7 +805,14 @@
       String(today.getMonth() + 1).padStart(2, "0"),
       String(today.getDate()).padStart(2, "0")
     ].join("-");
-    reservationDateInput.min = todayText;
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const tomorrowText = [
+      tomorrow.getFullYear(),
+      String(tomorrow.getMonth() + 1).padStart(2, "0"),
+      String(tomorrow.getDate()).padStart(2, "0")
+    ].join("-");
+    reservationDateInput.min = tomorrowText;
 
     let cachedWorkbook = null;
 
@@ -991,7 +998,10 @@
     }
 
     function getSelectedMode() {
-      var el = document.querySelector('input[name="linkMode"]:checked');
+      // disabled な選択肢が checked のまま残るケースを避ける
+      var el = document.querySelector('input[name="linkMode"]:checked:not(:disabled)')
+        || document.querySelector('input[name="linkMode"]:checked')
+        || document.querySelector('input[name="linkMode"]:not(:disabled)');
       return el ? el.value : "now-link";
     }
 
@@ -1001,10 +1011,20 @@
     }
 
     function updateModeButtons() {
+      var modeNowLinkEl = document.getElementById("modeNowLink");
+      var modeNowUnlinkEl = document.getElementById("modeNowUnlink");
       // 現在ビーコンが紐づいている場合 → いますぐ登録をdisable
-      document.getElementById("modeNowLink").disabled = state.currentOwner !== null;
+      modeNowLinkEl.disabled = state.currentOwner !== null;
       // 現在ビーコンが紐づいていない場合 → いますぐ解除をdisable
-      document.getElementById("modeNowUnlink").disabled = state.currentOwner === null;
+      modeNowUnlinkEl.disabled = state.currentOwner === null;
+
+      // disable された方が選択済みなら、有効な方へ自動で寄せる
+      if (modeNowLinkEl.disabled && modeNowLinkEl.checked) {
+        modeNowUnlinkEl.checked = true;
+      }
+      if (modeNowUnlinkEl.disabled && modeNowUnlinkEl.checked) {
+        modeNowLinkEl.checked = true;
+      }
     }
 
     function resetResult() {
@@ -1212,65 +1232,70 @@
     });
 
     csvButton.addEventListener("click", function () {
-      console.log("[UI] CSV出力ボタン押下");
-      var staffCode = normalizeStaffCode(staffCodeInput.value);
-      if (staffCode.length !== 6) {
-        setMessage("職員コードは6桁の半角数字で入力してください。", "error");
-        staffCodeInput.focus();
-        return;
-      }
-      staffCodeInput.value = staffCode.padStart(6, "0");
-
-      if (!state.currentMacAddress) {
-        setMessage("先にビーコン検索を行ってください。", "error");
-        return;
-      }
-
-      var mode = getSelectedMode();
-      // future-link または future-unlink の場合、未来ビーコンが必須
-      if ((mode === "future-link" || mode === "future-unlink") && !state.futureMacAddress) {
-        setMessage("未来日での操作には、未来ビーコンの検索が必須です。", "error");
-        return;
-      }
-
-      if ((mode === "future-link" || mode === "future-unlink")) {
-        if (!reservationDateInput.value) {
-          setMessage("未来日で紐づける場合は次回紐付け予約日を入力してください。", "error");
-          reservationDateInput.focus();
+      try {
+        console.log("[UI] CSV出力ボタン押下");
+        var staffCode = normalizeStaffCode(staffCodeInput.value);
+        if (staffCode.length !== 6) {
+          setMessage("職員コードは6桁の半角数字で入力してください。", "error");
+          staffCodeInput.focus();
           return;
         }
-        if (reservationDateInput.value < todayText) {
-          setMessage("次回紐付け予約日は現在日以降を指定してください。", "error");
-          reservationDateInput.focus();
+        staffCodeInput.value = staffCode.padStart(6, "0");
+
+        if (!state.currentMacAddress) {
+          setMessage("先にビーコン検索を行ってください。", "error");
           return;
         }
+
+        var mode = getSelectedMode();
+        // future-link または future-unlink の場合、未来ビーコンが必須
+        if ((mode === "future-link" || mode === "future-unlink") && !state.futureMacAddress) {
+          setMessage("未来日での操作には、未来ビーコンの検索が必須です。", "error");
+          return;
+        }
+
+        if ((mode === "future-link" || mode === "future-unlink")) {
+          if (!reservationDateInput.value) {
+            setMessage("未来日で紐づける場合は次回紐付け予約日を入力してください。", "error");
+            reservationDateInput.focus();
+            return;
+          }
+          if (reservationDateInput.value < tomorrowText) {
+            setMessage("次回紐付け予約日は明日以降を指定してください。", "error");
+            reservationDateInput.focus();
+            return;
+          }
+        }
+
+        var header = [
+          "職員コード", "利用者名", "ビーコン名", "MACアドレス",
+          "最終検知時刻", "備考", "次回紐付け予約日",
+          "次回ビーコン名", "次回MACアドレス", "電池交換"
+        ];
+        var lines = [header, buildCsvRow()].map(function (row) {
+          return row.map(escapeCsv).join(",");
+        });
+        var blob = new Blob(["\uFEFF" + lines.join("\r\n")], {
+          type: "text/csv;charset=utf-8;"
+        });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        var stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+        a.href = url;
+        a.download = "beacon_registration_" + stamp + ".csv";
+        console.log("[CSV] 出力:", a.download, "mode=" + mode, "row:", buildCsvRow());
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        setMessage("CSVを出力しました。", "success");
+        document.getElementById("importGuide").classList.remove("hidden");
+        document.getElementById("importGuide").scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (err) {
+        console.error("[CSV] 出力処理エラー:", err);
+        setMessage("CSV出力中にエラーが発生しました。コンソールをご確認ください。", "error");
       }
-
-      var header = [
-        "職員コード", "利用者名", "ビーコン名", "MACアドレス",
-        "最終検知時刻", "備考", "次回紐付け予約日",
-        "次回ビーコン名", "次回MACアドレス", "電池交換"
-      ];
-      var lines = [header, buildCsvRow()].map(function (row) {
-        return row.map(escapeCsv).join(",");
-      });
-      var blob = new Blob(["\uFEFF" + lines.join("\r\n")], {
-        type: "text/csv;charset=utf-8;"
-      });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      var stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
-      a.href = url;
-      a.download = "beacon_registration_" + stamp + ".csv";
-      console.log("[CSV] 出力:", a.download, "mode=" + mode, "row:", buildCsvRow());
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-
-      setMessage("CSVを出力しました。", "success");
-      document.getElementById("importGuide").classList.remove("hidden");
-      document.getElementById("importGuide").scrollIntoView({ behavior: "smooth", block: "center" });
     });
 
     updateFutureDateVisibility();
