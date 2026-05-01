@@ -579,7 +579,7 @@
   <div class="container">
     <div class="card">
       <div class="header">
-        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.10</span></h1>
+        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.12</span></h1>
         <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
       </div>
 
@@ -1072,6 +1072,7 @@
     function searchBeaconInfo(workbook, params) {
       var beaconName = params.beaconName;
       var staffNo = params.staffNo;
+      var staffNoCandidate = null;
       console.log("[SEARCH] 検索開始 beacon=\"" + beaconName + "\", staffNo=\"" + staffNo + "\"");
       for (var i = 0; i < workbook.SheetNames.length; i++) {
         var sheetName = workbook.SheetNames[i];
@@ -1087,23 +1088,47 @@
           var rowStaffNo = String(row[6] == null ? "" : row[6]).trim();
           var hitByBeacon = beaconName && mgmtNum === beaconName;
           var hitByStaffNo = staffNo && rowStaffNo === staffNo;
-          if ((hitByBeacon || hitByStaffNo) && mac) {
-            console.log("[SEARCH] ヒット: 行" + (r + 1) + ", E=\"" + mgmtNum + "\", F=\"" + mac + "\", G=\"" + rowStaffNo + "\"");
-            var cell = function(idx) { return String(row[idx] == null ? "" : row[idx]).trim(); };
-            var owner = {
-              staffNo:   cell(6),
-              dept:      cell(7),
-              lastName:  cell(8),
-              firstName: cell(9),
-              lastKana:  cell(10),
-              firstKana: cell(11),
-              id:        cell(12)
+          if (hitByBeacon && mac) {
+            console.log("[SEARCH] ヒット(ビーコン): 行" + (r + 1) + ", E=\"" + mgmtNum + "\", F=\"" + mac + "\", G=\"" + rowStaffNo + "\"");
+            var cellBeacon = function(idx) { return String(row[idx] == null ? "" : row[idx]).trim(); };
+            var ownerBeacon = {
+              staffNo:   cellBeacon(6),
+              dept:      cellBeacon(7),
+              lastName:  cellBeacon(8),
+              firstName: cellBeacon(9),
+              lastKana:  cellBeacon(10),
+              firstKana: cellBeacon(11),
+              id:        cellBeacon(12)
             };
-            var hasOwner = owner.staffNo || owner.lastName || owner.id;
-            console.log("[SEARCH] 紐づき情報:", hasOwner ? JSON.stringify(owner) : "なし");
-            return { beaconName: mgmtNum, mac: mac, owner: hasOwner ? owner : null };
+            var hasOwnerBeacon = ownerBeacon.staffNo || ownerBeacon.lastName || ownerBeacon.id;
+            console.log("[SEARCH] 紐づき情報:", hasOwnerBeacon ? JSON.stringify(ownerBeacon) : "なし");
+            return { beaconName: mgmtNum, mac: mac, owner: hasOwnerBeacon ? ownerBeacon : null, noBeacon: false };
+          }
+
+          if (hitByStaffNo) {
+            var cellStaff = function(idx) { return String(row[idx] == null ? "" : row[idx]).trim(); };
+            var ownerStaff = {
+              staffNo:   cellStaff(6),
+              dept:      cellStaff(7),
+              lastName:  cellStaff(8),
+              firstName: cellStaff(9),
+              lastKana:  cellStaff(10),
+              firstKana: cellStaff(11),
+              id:        cellStaff(12)
+            };
+            if (mac) {
+              console.log("[SEARCH] ヒット(職員番号・紐づきあり): 行" + (r + 1));
+              return { beaconName: mgmtNum, mac: mac, owner: ownerStaff, noBeacon: false };
+            }
+            if (!staffNoCandidate) {
+              console.log("[SEARCH] ヒット(職員番号・ビーコンなし): 行" + (r + 1));
+              staffNoCandidate = { beaconName: "", mac: "", owner: ownerStaff, noBeacon: true };
+            }
           }
         }
+      }
+      if (staffNoCandidate) {
+        return staffNoCandidate;
       }
       console.log("[SEARCH] 該当なし");
       return null;
@@ -1209,11 +1234,11 @@
       // 最初の検索 → 現在ビーコン
       if (!state.hasSearchedOnce) {
         state.hasSearchedOnce = true;
-        state.currentBeaconName = result.beaconName;
-        state.currentMacAddress = result.mac;
-        state.currentOwner = result.owner;
+        state.currentBeaconName = result.noBeacon ? "" : result.beaconName;
+        state.currentMacAddress = result.noBeacon ? "" : result.mac;
+        state.currentOwner = result.noBeacon ? null : result.owner;
         
-        macAddressSpan.textContent = result.mac;
+        macAddressSpan.textContent = result.noBeacon ? "ビーコンなし" : result.mac;
         resultSection.classList.remove("hidden");
         document.getElementById("csvSection").classList.remove("hidden");
         csvButton.disabled = false;
@@ -1230,7 +1255,11 @@
           document.getElementById("ownerFirstKana").textContent = result.owner.firstKana;
           document.getElementById("ownerId").textContent = result.owner.id;
           ownerInfoEl.classList.remove("hidden");
-          setMessage("MACアドレスを取得しました。（現在紐づき中）", "success");
+          if (result.noBeacon) {
+            setMessage("職員番号は見つかりました。（ビーコンなし）", "success");
+          } else {
+            setMessage("MACアドレスを取得しました。（現在紐づき中）", "success");
+          }
         } else {
           ownerInfoEl.classList.add("hidden");
           setMessage("MACアドレスを取得しました。（未紐づけ）", "success");
@@ -1267,6 +1296,7 @@
     csvButton.addEventListener("click", function () {
       try {
         console.log("[UI] CSV出力ボタン押下");
+        var mode = getSelectedMode();
         var staffCode = normalizeStaffCode(staffCodeInput.value);
         if (staffCode.length !== 6) {
           setMessage("職員コードは6桁の半角数字で入力してください。", "error");
@@ -1275,14 +1305,18 @@
         }
         staffCodeInput.value = staffCode.padStart(6, "0");
 
-        if (!state.currentMacAddress) {
-          setMessage("先にビーコン検索を行ってください。", "error");
+        if (mode === "now-link" && !state.currentMacAddress) {
+          setMessage("現在ビーコンが未設定です。未来日登録を選ぶか、先にビーコン検索を行ってください。", "error");
           return;
         }
 
-        var mode = getSelectedMode();
+        if ((mode === "now-unlink" || mode === "future-unlink") && !state.currentMacAddress) {
+          setMessage("解除対象の現在ビーコンがありません。", "error");
+          return;
+        }
+
         // future-link または future-unlink の場合、未来ビーコンが必須
-        if ((mode === "future-link" || mode === "future-unlink") && !state.futureMacAddress) {
+        if (mode === "future-link" && !state.futureMacAddress) {
           setMessage("未来日での操作には、未来ビーコンの検索が必須です。", "error");
           return;
         }
