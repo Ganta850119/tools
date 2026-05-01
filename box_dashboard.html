@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Box メタデータテンプレート管理ツール</title>
+  <title>Box管理ツール ダッシュボード</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>" />
   <style>
     :root {
@@ -43,64 +43,41 @@
     .muted { color:var(--muted); font-size:14px; }
     .field { display:flex; flex-direction:column; margin-bottom:12px; }
     .field label { font-weight:500; margin-bottom:6px; color:var(--text); }
-    .field input, .field select, .field textarea { padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:white; font-family:inherit; }
-    .field input:focus, .field select:focus, .field textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(43,108,176,0.1); }
+    .field input, .field select { padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:white; }
+    .field input:focus, .field select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(43,108,176,0.1); }
     .row { display:flex; gap:16px; align-items:end; flex-wrap:wrap; }
     button { padding:10px 20px; border:none; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; transition:all 0.2s; }
     .primary { background:var(--accent); color:white; }
     .primary:hover { background:#1e40af; transform:translateY(-1px); }
-    .primary:disabled { background:#9ca3af; cursor:not-allowed; transform:none; }
     .secondary { background:#f3f4f6; color:#374151; border:1px solid var(--border); }
     .secondary:hover { background:#e5e7eb; }
-    .danger { background:#dc2626; color:white; }
-    .danger:hover { background:#b91c1c; }
-    .success { background:#16a34a; color:white; }
-    .success:hover { background:#15803d; }
-    .required { color:#dc2626; margin-left:4px; }
     
     .status { padding:12px; border-radius:8px; margin:8px 0; font-weight:500; min-height:32px; }
-    .error { color:#dc2626; background:#fef2f2; border-left:4px solid #dc2626; padding:12px; }
-    .success { color:#16a34a; background:#f0fdf4; border-left:4px solid #16a34a; padding:12px; }
-    .info { color:#0284c7; background:#f0f9ff; border-left:4px solid #0284c7; padding:12px; }
-    .warning { color:#ea580c; background:#fef3c7; border-left:4px solid #ea580c; padding:12px; }
-    
-    .table-wrapper { border:1px solid var(--border); border-radius:12px; overflow:auto; background:white; box-shadow:var(--shadow); max-height:600px; }
+    .error { color:#dc2626; }
+    .success { color:#16a34a; }
+    .info { color:#0284c7; }
+    .status-details { margin-top:12px; padding:12px; background:#f0f9ff; border-left:4px solid #0284c7; border-radius:6px; font-size:13px; line-height:1.6; }
+    .status-details.error { background:#fef2f2; border-color:#dc2626; }
+    .status-details.success { background:#f0fdf4; border-color:#16a34a; }
+    .status-detail-row { display:flex; gap:12px; margin-bottom:6px; }
+    .status-detail-label { font-weight:600; min-width:120px; color:var(--text); }
+    .status-detail-value { color:var(--text); }
+    .expiry-warning { color:#ea580c; font-weight:600; }
+    .expiry-expired { color:#dc2626; font-weight:600; }
+    .table-wrapper { border:1px solid var(--border); border-radius:12px; overflow:auto; background:white; box-shadow:var(--shadow); }
     table { width:100%; border-collapse:collapse; }
-    th, td { padding:12px; border-bottom:1px solid var(--border); text-align:left; font-size:13px; }
+    th, td { padding:10px; border-bottom:1px solid var(--border); text-align:left; font-size:13px; }
     th { background:#f8fafc; color:var(--muted); font-weight:600; position:sticky; top:0; z-index:1; }
     tr:hover td { background:#f8fafc; }
-    .tag { display:inline-block; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:500; }
-    .tag-field { background:#e0e7ff; color:#3730a3; }
-    .tag-string { background:#dbeafe; color:#0c4a6e; }
-    .tag-float { background:#fce7f3; color:#831843; }
-    .tag-date { background:#ddd6fe; color:#5b21b6; }
-    .tag-enum { background:#fed7aa; color:#7c2d12; }
-    .actions { display:flex; gap:8px; white-space:nowrap; }
-    .actions button { padding:6px 12px; font-size:12px; }
-    
-    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); z-index: 2000; overflow-y:auto; align-items:center; justify-content:center; }
-    .modal.active { display:flex; }
-    .modal-content { background:white; border-radius:16px; max-width:600px; width:90%; max-height:90vh; overflow-y:auto; padding:32px; box-shadow:0 20px 60px rgba(0,0,0,0.3); position:relative; }
-    .modal-close { position:absolute; top:16px; right:16px; background:#f0f0f0; border:none; font-size:24px; cursor:pointer; color:#666; width:36px; height:36px; border-radius:50%; font-weight:bold; }
-    .modal-close:hover { background:#e0e0e0; }
-    .modal h2 { color:var(--accent); margin-top:0; margin-bottom:20px; border-bottom:2px solid var(--border); padding-bottom:12px; }
-    .modal .field { margin-bottom:16px; }
-    .modal input, .modal select, .modal textarea { width:100%; box-sizing:border-box; }
-    .modal-actions { display:flex; gap:12px; margin-top:24px; }
-    .modal-actions button { flex:1; }
-    .modal-actions .secondary { flex:1; }
-    
-    .field-list { background:#f9fafb; border:1px solid var(--border); border-radius:8px; padding:12px; }
-    .field-item { background:white; border:1px solid var(--border); border-radius:6px; padding:12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
-    .field-item-info { flex:1; }
-    .field-item-name { font-weight:600; color:var(--text); }
-    .field-item-type { font-size:12px; color:var(--muted); }
-    .field-item-actions { display:flex; gap:8px; }
-    .field-item-actions button { padding:4px 8px; font-size:12px; }
-    
-    .loading { display:none; text-align:center; padding:20px; }
-    .spinner { border:3px solid var(--border); border-top:3px solid var(--accent); border-radius:50%; width:32px; height:32px; animation:spin 1s linear infinite; margin:0 auto 12px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; border:1px solid #cbd5e1; color:#1f2937; background:#f8fafc; }
+    .actions { white-space:nowrap; }
+    .actions a { color:var(--accent); text-decoration:none; font-weight:600; }
+    .actions a:hover { text-decoration:underline; }
+    .pagination { display:flex; justify-content:center; align-items:center; gap:12px; margin-top:16px; }
+    .pagination button { padding:8px 16px; }
+    .pagination button:disabled { opacity:0.4; cursor:not-allowed; }
+    .pagination .page-info { color:var(--muted); font-size:14px; }
+    .highlight { background:#ffeb3b; font-weight:600; padding:2px 4px; border-radius:3px; }
   </style>
 </head>
 <body>
@@ -110,30 +87,30 @@
       <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
       <h2>Box管理ツール</h2>
     </div>
-    <a href="box_dashboard.html" class="nav-item">
+    <a href="box_dashboard.html" class="nav-item active">
       <span class="nav-icon">🏠</span>
       <span class="nav-text">ダッシュボード</span>
-      <span class="tooltip">メインダッシュボード</span>
+      <span class="tooltip">Box内検索を実行するメイン画面です。</span>
     </a>
     <a href="#" onclick="navigateWithSettings('box_tree_generator.html'); return false;" class="nav-item">
       <span class="nav-icon">🌳</span>
       <span class="nav-text">フォルダツリー生成</span>
-      <span class="tooltip">フォルダ構造を再帰的に収集</span>
+      <span class="tooltip">指定フォルダ配下のフォルダ構造を再帰的に収集し、Excel出力します。</span>
     </a>
     <a href="#" onclick="navigateWithSettings('box_share_links.html'); return false;" class="nav-item">
       <span class="nav-icon">🔗</span>
-      <span class="nav-text">共有リンク一括生成</span>
-      <span class="tooltip">複数ファイルの共有リンクを生成</span>
+      <span class="nav-text">共有リンク生成</span>
+      <span class="tooltip">フォルダ・ファイルを選択し、共有リンクを一括で生成します。</span>
     </a>
-    <a href="box_metadata_templates.html" class="nav-item active">
-      <span class="nav-icon">📋</span>
-      <span class="nav-text">メタデータテンプレート</span>
-      <span class="tooltip">メタデータテンプレートの管理</span>
+    <a href="#" onclick="navigateWithSettings('box_file_overwrite.html'); return false;" class="nav-item">
+      <span class="nav-icon">📤</span>
+      <span class="nav-text">ファイル上書き</span>
+      <span class="tooltip">既存ファイルの内容を別ファイルで置換します。</span>
     </a>
-    <a href="#" onclick="navigateWithSettings('box_list_items.html'); return false;" class="nav-item">
-      <span class="nav-icon">📁</span>
-      <span class="nav-text">アイテム一覧表示</span>
-      <span class="tooltip">フォルダ内のアイテムを表示</span>
+    <a href="#" onclick="navigateWithSettings('box_api_capabilities.html'); return false;" class="nav-item">
+      <span class="nav-icon">📘</span>
+      <span class="nav-text">API機能一覧</span>
+      <span class="tooltip">Box公式APIの主な機能をカテゴリ別にまとめたリファレンスです。</span>
     </a>
   </div>
 
@@ -141,698 +118,645 @@
   <div class="main-content">
     <div class="container">
       <header>
-        <h1>📋 Box メタデータテンプレート管理ツール</h1>
-        <div class="description">Box APIを利用してメタデータテンプレートを一覧表示、追加、編集、削除できます。</div>
+        <h1>📦 Box管理ツール</h1>
+        <div class="description">Box APIを使った各種管理機能</div>
       </header>
 
-      <!-- Token設定 -->
       <section class="card">
-        <h2>🔑 アクセストークン設定</h2>
-        <div class="field">
-          <label for="token">アクセストークン <span class="required">*</span></label>
-          <input id="token" type="password" placeholder="例: eyJhbGciOi..." />
-        </div>
-        <div class="field">
-          <label for="enterpriseId">エンタープライズID <span class="required">*</span></label>
-          <input id="enterpriseId" type="text" placeholder="例: 123456789" />
-        </div>
-        <div class="row" style="margin-top: 16px;">
-          <button id="testConnBtn" class="secondary">接続確認</button>
-          <span id="connStatus" class="muted"></span>
-        </div>
-        <div id="connMessage" style="margin-top: 12px;"></div>
-      </section>
-
-      <!-- テンプレート一覧 -->
-      <section class="card">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-          <h2 style="margin: 0;">📚 メタデータテンプレート一覧</h2>
-          <button id="refreshBtn" class="secondary">🔄 更新</button>
-        </div>
-        <div id="loadingIndicator" class="loading">
-          <div class="spinner"></div>
-          <p>データを読み込み中...</p>
-        </div>
-        <div id="templateListWrapper">
-          <div class="table-wrapper">
-            <table id="templateTable">
-              <thead>
-                <tr>
-                  <th>テンプレート名</th>
-                  <th>スコープ</th>
-                  <th>フィールド数</th>
-                  <th>説明</th>
-                  <th style="width:200px; text-align:center;">操作</th>
-                </tr>
-              </thead>
-              <tbody id="templateTbody">
-                <tr><td colspan="5" class="muted" style="text-align:center; padding:40px;">「更新」ボタンを押してテンプレート一覧を読み込んでください。</td></tr>
-              </tbody>
-            </table>
+        <h2>📡 接続設定</h2>
+        <div class="row">
+          <div class="field" style="flex:1; margin-bottom:0;">
+            <label for="token">アクセストークン</label>
+            <input id="token" type="text" placeholder="例: eyJhbGciOi..." />
+          </div>
+          <div class="field" style="flex:1; margin-bottom:0;">
+            <label for="folderId">検索対象フォルダID（オプション）</label>
+            <input id="folderId" type="text" placeholder="例: 0（ルート）" value="0" />
+          </div>
+          <div class="field" style="flex:0 0 auto; margin-bottom:0; display:flex; align-items:flex-end;">
+            <button id="testConnectionBtn" class="secondary" style="white-space:nowrap;">🔌 疎通確認</button>
           </div>
         </div>
-        <div id="listMessage" style="margin-top: 12px;"></div>
+        <div id="status" class="status" style="visibility:hidden;"></div>
       </section>
 
-      <!-- テンプレート追加ボタン -->
       <section class="card">
-        <button id="addTemplateBtn" class="primary" style="width: 100%; padding: 14px;">➕ 新しいテンプレートを追加</button>
+        <h2>🔍 Box内を検索</h2>
+        <div class="row">
+          <div class="field" style="flex:2;">
+            <label for="searchQuery">キーワード</label>
+            <input id="searchQuery" type="text" placeholder="例: 契約書 2024" />
+          </div>
+          <div class="field" style="flex:1;">
+            <label for="searchType">種別</label>
+            <select id="searchType">
+              <option value="">ファイル/フォルダ</option>
+              <option value="file">ファイルのみ</option>
+              <option value="folder">フォルダのみ</option>
+            </select>
+          </div>
+          <div class="field" style="flex:0 0 120px;">
+            <label for="searchLimit">1ページ件数</label>
+            <input id="searchLimit" type="number" min="1" max="200" value="20" />
+          </div>
+        </div>
+        <div class="row" style="align-items:center;">
+          <div class="field" style="flex:1; margin-bottom:0;">
+            <label><input type="checkbox" id="useFolderScope" checked /> 指定フォルダ配下に限定</label>
+            <div class="muted">フォルダID未入力 or 0 の場合は全体検索になります。</div>
+          </div>
+          <div class="field" style="flex:0 0 auto; margin-bottom:0;">
+            <label><input type="checkbox" id="highlightToggle" checked /> キーワードをハイライト表示</label>
+          </div>
+          <div class="field" style="flex:0 0 auto; margin-bottom:0; display:flex; align-items:flex-end;">
+            <button id="searchBtn" class="primary" style="white-space:nowrap;">🔍 検索</button>
+          </div>
+        </div>
+        <div id="searchStatus" class="status" style="visibility:hidden;"></div>
+      </section>
+
+      <section class="card">
+        <h2>📄 検索結果</h2>
+        <div class="pagination" id="paginationTop" style="display:none; margin-bottom:16px;">
+          <button id="prevBtnTop" class="secondary">← 前へ</button>
+          <span class="page-info" id="pageInfoTop"></span>
+          <button id="nextBtnTop" class="secondary">次へ →</button>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:50px;">種別</th>
+                <th>名前</th>
+                <th style="width:120px;">更新日</th>
+                <th style="width:90px;">サイズ</th>
+                <th>パス</th>
+                <th style="width:160px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody">
+              <tr><td colspan="6" class="muted">検索条件を入力して「検索」を押してください。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination" style="display:none;">
+          <button id="prevBtn" class="secondary">← 前へ</button>
+          <span class="page-info" id="pageInfo"></span>
+          <button id="nextBtn" class="secondary">次へ →</button>
+        </div>
       </section>
     </div>
   </div>
 
-  <!-- テンプレート追加/編集 モーダル -->
-  <div id="templateModal" class="modal" onclick="closeModalOnBackdrop(event, 'templateModal')">
-    <div class="modal-content">
-      <button class="modal-close" onclick="closeTemplateModal()">✕</button>
-      <h2 id="modalTitle">新しいテンプレートを追加</h2>
-      
-      <div class="field">
-        <label for="templateDisplayName">テンプレート表示名 <span class="required">*</span></label>
-        <input id="templateDisplayName" type="text" placeholder="例: 契約書メタデータ" />
-      </div>
-
-      <div class="field">
-        <label for="templateKey">テンプレートキー <span class="required">*</span></label>
-        <input id="templateKey" type="text" placeholder="例: contract_metadata" />
-        <div class="muted" style="font-size: 12px; margin-top: 4px;">英数字、アンダースコアのみ使用可能</div>
-      </div>
-
-      <div class="field">
-        <label for="templateScope">スコープ <span class="required">*</span></label>
-        <select id="templateScope">
-          <option value="">-- 選択してください --</option>
-          <option value="global">グローバル</option>
-          <option value="enterprise">エンタープライズ</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="templateDescription">説明</label>
-        <textarea id="templateDescription" placeholder="このテンプレートの用途を説明します" rows="3"></textarea>
-      </div>
-
-      <div class="field">
-        <label>フィールド <span class="required">*</span></label>
-        <div class="field-list" id="fieldsList">
-          <div class="muted" style="text-align:center; padding: 20px;">フィールドを追加してください</div>
-        </div>
-        <button type="button" onclick="addFieldToModal()" class="secondary" style="width: 100%; margin-top: 12px;">➕ フィールドを追加</button>
-      </div>
-
-      <div class="modal-actions">
-        <button type="button" onclick="closeTemplateModal()" class="secondary">キャンセル</button>
-        <button id="saveTemplateBtn" type="button" onclick="saveTemplate()" class="primary">保存</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- フィールド編集 モーダル -->
-  <div id="fieldModal" class="modal" onclick="closeModalOnBackdrop(event, 'fieldModal')">
-    <div class="modal-content">
-      <button class="modal-close" onclick="closeFieldModal()">✕</button>
-      <h2>フィールド設定</h2>
-      
-      <div class="field">
-        <label for="fieldKey">フィールドキー <span class="required">*</span></label>
-        <input id="fieldKey" type="text" placeholder="例: contract_date" />
-      </div>
-
-      <div class="field">
-        <label for="fieldDisplayName">フィールド表示名 <span class="required">*</span></label>
-        <input id="fieldDisplayName" type="text" placeholder="例: 契約日" />
-      </div>
-
-      <div class="field">
-        <label for="fieldType">型 <span class="required">*</span></label>
-        <select id="fieldType" onchange="updateFieldTypeOptions()">
-          <option value="">-- 選択してください --</option>
-          <option value="string">文字列</option>
-          <option value="float">小数</option>
-          <option value="date">日付</option>
-          <option value="enum">リスト（選択肢）</option>
-          <option value="multiselect">複数選択</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label>
-          <input type="checkbox" id="fieldRequired" />
-          <span style="margin-left: 8px;">必須フィールド</span>
-        </label>
-      </div>
-
-      <div id="fieldTypeOptions" style="display: none;">
-        <div class="field">
-          <label for="fieldEnumOptions">選択肢（1行に1つ） <span class="required">*</span></label>
-          <textarea id="fieldEnumOptions" placeholder="例:&#10;選択肢1&#10;選択肢2&#10;選択肢3" rows="4"></textarea>
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="fieldDescription">説明</label>
-        <input id="fieldDescription" type="text" placeholder="このフィールドの説明" />
-      </div>
-
-      <div class="modal-actions">
-        <button type="button" onclick="closeFieldModal()" class="secondary">キャンセル</button>
-        <button id="saveFieldBtn" type="button" onclick="saveField()" class="primary">保存</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- テンプレート詳細 モーダル -->
-  <div id="templateDetailModal" class="modal" onclick="closeModalOnBackdrop(event, 'templateDetailModal')">
-    <div class="modal-content" style="max-width: 700px;">
-      <button class="modal-close" onclick="closeTemplateDetailModal()">✕</button>
-      <h2 id="detailTemplateName"></h2>
-      
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border);">
-        <div>
-          <div class="muted">スコープ</div>
-          <div id="detailScope" style="font-weight: 500; margin-top: 4px;"></div>
-        </div>
-        <div>
-          <div class="muted">テンプレートID</div>
-          <div id="detailTemplateId" style="font-weight: 500; margin-top: 4px; font-family: monospace; font-size: 12px; word-break: break-all;"></div>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 20px;">
-        <div style="font-weight: 600; margin-bottom: 12px;">フィールド</div>
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="border-bottom: 2px solid var(--border);">
-              <th style="text-align: left; padding: 8px; font-weight: 600; color: var(--muted);">フィールド名</th>
-              <th style="text-align: left; padding: 8px; font-weight: 600; color: var(--muted);">型</th>
-              <th style="text-align: center; padding: 8px; font-weight: 600; color: var(--muted);">必須</th>
-            </tr>
-          </thead>
-          <tbody id="detailFieldsList"></tbody>
-        </table>
-      </div>
-
-      <div class="modal-actions">
-        <button type="button" onclick="closeTemplateDetailModal()" class="secondary">閉じる</button>
-      </div>
-    </div>
-  </div>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-base64/3.7.5/js-base64.min.js"></script>
   <script>
-    // グローバル変数
-    let templates = [];
-    let currentEditingTemplate = null;
-    let currentEditingField = null;
-    let fieldsInModal = [];
-    let currentSelectedFieldIndex = null;
+    const tokenEl = document.getElementById('token');
+    const folderIdEl = document.getElementById('folderId');
+    const statusEl = document.getElementById('status');
+    const testConnectionBtn = document.getElementById('testConnectionBtn');
+    const searchQueryEl = document.getElementById('searchQuery');
+    const searchTypeEl = document.getElementById('searchType');
+    const searchLimitEl = document.getElementById('searchLimit');
+    const useFolderScopeEl = document.getElementById('useFolderScope');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchStatusEl = document.getElementById('searchStatus');
+    const resultsBody = document.getElementById('resultsBody');
+    const paginationEl = document.getElementById('pagination');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const pageInfoEl = document.getElementById('pageInfo');
+    const paginationTopEl = document.getElementById('paginationTop');
+    const prevBtnTop = document.getElementById('prevBtnTop');
+    const nextBtnTop = document.getElementById('nextBtnTop');
+    const pageInfoTopEl = document.getElementById('pageInfoTop');
+    const highlightToggleEl = document.getElementById('highlightToggle');
+    const IS_LOCALHOST = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const TOKEN_SERVER_URL = 'http://127.0.0.1:5000/api/token';
 
-    // 初期化
-    document.addEventListener('DOMContentLoaded', function() {
-      loadSettings();
-      document.getElementById('refreshBtn').addEventListener('click', loadTemplates);
-      document.getElementById('testConnBtn').addEventListener('click', testConnection);
-      document.getElementById('addTemplateBtn').addEventListener('click', openTemplateModal);
-    });
+    let useTokenServer = false;
+    let cachedToken = null;
+    let tokenExpireTime = null;
 
-    // 設定の読み込み
-    function loadSettings() {
-      const token = localStorage.getItem('box_token') || '';
-      const enterpriseId = localStorage.getItem('box_enterpriseId') || '';
-      document.getElementById('token').value = token;
-      document.getElementById('enterpriseId').value = enterpriseId;
-    }
+    let allResults = [];
+    let currentPage = 0;
+    let itemsPerPage = 20;
+    let currentSearchQuery = '';
 
-    // 設定の保存
-    function saveSettings() {
-      localStorage.setItem('box_token', document.getElementById('token').value);
-      localStorage.setItem('box_enterpriseId', document.getElementById('enterpriseId').value);
-    }
-
-    // 接続確認
-    async function testConnection() {
-      const token = document.getElementById('token').value;
-      const enterpriseId = document.getElementById('enterpriseId').value;
-
-      if (!token || !enterpriseId) {
-        showMessage('connMessage', 'トークンとエンタープライズIDを入力してください', 'error');
-        return;
-      }
-
-      saveSettings();
-      const connStatus = document.getElementById('connStatus');
-      connStatus.textContent = '確認中...';
-
-      try {
-        const response = await fetch('https://api.box.com/2.0/metadata_templates?scope=enterprise', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          showMessage('connMessage', '接続に成功しました！', 'success');
-          connStatus.textContent = '✓ 接続済み';
-          await loadTemplates();
-        } else if (response.status === 401) {
-          showMessage('connMessage', 'トークンが無効です。新しいトークンを取得してください。', 'error');
-          connStatus.textContent = '✗ 接続失敗';
-        } else {
-          showMessage('connMessage', `エラー: ${response.status} - ${response.statusText}`, 'error');
-          connStatus.textContent = '✗ 接続失敗';
-        }
-      } catch (error) {
-        showMessage('connMessage', `接続エラー: ${error.message}`, 'error');
-        connStatus.textContent = '✗ 接続失敗';
-      }
-    }
-
-    // テンプレート一覧を読み込む
-    async function loadTemplates() {
-      const token = document.getElementById('token').value;
-      const enterpriseId = document.getElementById('enterpriseId').value;
-
-      if (!token) {
-        showMessage('listMessage', 'トークンを入力してください', 'error');
-        return;
-      }
-
-      saveSettings();
-      toggleLoading(true);
-
-      try {
-        const response = await fetch('https://api.box.com/2.0/metadata_templates?scope=enterprise', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          templates = data.entries || [];
-          renderTemplateList();
-          showMessage('listMessage', `${templates.length}個のテンプレートを読み込みました。`, 'success');
-        } else {
-          showMessage('listMessage', `読み込みエラー: ${response.status} - ${response.statusText}`, 'error');
-        }
-      } catch (error) {
-        showMessage('listMessage', `エラー: ${error.message}`, 'error');
-      } finally {
-        toggleLoading(false);
-      }
-    }
-
-    // テンプレート一覧をレンダリング
-    function renderTemplateList() {
-      const tbody = document.getElementById('templateTbody');
-      
-      if (templates.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="muted" style="text-align:center; padding:40px;">メタデータテンプレートがありません</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = templates.map(template => {
-        const fieldCount = (template.fields || []).length;
-        const scope = template.scope || 'unknown';
-        const displayName = template.displayName || template.templateKey || 'N/A';
-        const description = template.description || '-';
-
-        return `
-          <tr>
-            <td><strong>${escapeHtml(displayName)}</strong></td>
-            <td>${escapeHtml(scope)}</td>
-            <td>${fieldCount}</td>
-            <td>${escapeHtml(description)}</td>
-            <td style="text-align:center;">
-              <div class="actions">
-                <button class="secondary" onclick="viewTemplate('${escapeAttr(template.id)}')">詳細</button>
-                <button class="secondary" onclick="editTemplate('${escapeAttr(template.id)}')">編集</button>
-                <button class="danger" onclick="deleteTemplate('${escapeAttr(template.id)}')">削除</button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    // テンプレート詳細表示
-    function viewTemplate(templateId) {
-      const template = templates.find(t => t.id === templateId);
-      if (!template) return;
-
-      document.getElementById('detailTemplateName').textContent = template.displayName || template.templateKey;
-      document.getElementById('detailScope').textContent = template.scope || 'unknown';
-      document.getElementById('detailTemplateId').textContent = template.id;
-
-      const fieldsList = document.getElementById('detailFieldsList');
-      const fields = template.fields || [];
-      
-      if (fields.length === 0) {
-        fieldsList.innerHTML = '<tr><td colspan="3" class="muted" style="padding: 20px; text-align: center;">フィールドがありません</td></tr>';
-      } else {
-        fieldsList.innerHTML = fields.map(field => {
-          const typeTag = getTypeTag(field.type);
-          const required = field.hidden ? '✗' : '✓';
-          return `
-            <tr style="border-bottom: 1px solid var(--border);">
-              <td style="padding: 10px; font-weight: 500;">${escapeHtml(field.displayName || field.key)}</td>
-              <td style="padding: 10px;">${typeTag}</td>
-              <td style="padding: 10px; text-align: center;">${required}</td>
-            </tr>
-          `;
-        }).join('');
-      }
-
-      document.getElementById('templateDetailModal').classList.add('active');
-    }
-
-    // テンプレート編集
-    function editTemplate(templateId) {
-      const template = templates.find(t => t.id === templateId);
-      if (!template) return;
-
-      currentEditingTemplate = template;
-      fieldsInModal = JSON.parse(JSON.stringify(template.fields || []));
-      
-      document.getElementById('modalTitle').textContent = 'テンプレートを編集';
-      document.getElementById('templateDisplayName').value = template.displayName || '';
-      document.getElementById('templateKey').value = template.templateKey || '';
-      document.getElementById('templateScope').value = template.scope || '';
-      document.getElementById('templateDescription').value = template.description || '';
-      
-      renderFieldsList();
-      document.getElementById('templateModal').classList.add('active');
-    }
-
-    // テンプレート追加
-    function openTemplateModal() {
-      currentEditingTemplate = null;
-      fieldsInModal = [];
-      
-      document.getElementById('modalTitle').textContent = '新しいテンプレートを追加';
-      document.getElementById('templateDisplayName').value = '';
-      document.getElementById('templateKey').value = '';
-      document.getElementById('templateScope').value = '';
-      document.getElementById('templateDescription').value = '';
-      
-      renderFieldsList();
-      document.getElementById('templateModal').classList.add('active');
-    }
-
-    // フィールド一覧をレンダリング
-    function renderFieldsList() {
-      const fieldsList = document.getElementById('fieldsList');
-      
-      if (fieldsInModal.length === 0) {
-        fieldsList.innerHTML = '<div class="muted" style="text-align:center; padding: 20px;">フィールドを追加してください</div>';
-        return;
-      }
-
-      fieldsList.innerHTML = fieldsInModal.map((field, index) => {
-        const typeTag = getTypeTag(field.type);
-        const required = field.hidden ? '✗' : '✓';
-        return `
-          <div class="field-item">
-            <div class="field-item-info">
-              <div class="field-item-name">${escapeHtml(field.displayName || field.key)}</div>
-              <div class="field-item-type">${typeTag} | 必須: ${required}</div>
-            </div>
-            <div class="field-item-actions">
-              <button type="button" onclick="editField(${index})" class="secondary">編集</button>
-              <button type="button" onclick="deleteField(${index})" class="danger">削除</button>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // フィールド型に応じたタグを取得
-    function getTypeTag(type) {
-      const tags = {
-        'string': '<span class="tag tag-string">文字列</span>',
-        'float': '<span class="tag tag-float">小数</span>',
-        'date': '<span class="tag tag-date">日付</span>',
-        'enum': '<span class="tag tag-enum">リスト</span>',
-        'multiselect': '<span class="tag tag-enum">複数選択</span>'
-      };
-      return tags[type] || `<span class="tag tag-field">${escapeHtml(type)}</span>`;
-    }
-
-    // フィールドを追加
-    function addFieldToModal() {
-      currentEditingField = null;
-      currentSelectedFieldIndex = null;
-      
-      document.getElementById('fieldKey').value = '';
-      document.getElementById('fieldDisplayName').value = '';
-      document.getElementById('fieldType').value = '';
-      document.getElementById('fieldRequired').checked = false;
-      document.getElementById('fieldDescription').value = '';
-      document.getElementById('fieldEnumOptions').value = '';
-      document.getElementById('fieldTypeOptions').style.display = 'none';
-      
-      document.getElementById('fieldModal').classList.add('active');
-    }
-
-    // フィールドを編集
-    function editField(index) {
-      const field = fieldsInModal[index];
-      currentSelectedFieldIndex = index;
-      
-      document.getElementById('fieldKey').value = field.key || '';
-      document.getElementById('fieldDisplayName').value = field.displayName || '';
-      document.getElementById('fieldType').value = field.type || '';
-      document.getElementById('fieldRequired').checked = !field.hidden;
-      document.getElementById('fieldDescription').value = field.description || '';
-      
-      updateFieldTypeOptions();
-      
-      if ((field.type === 'enum' || field.type === 'multiselect') && field.options) {
-        document.getElementById('fieldEnumOptions').value = field.options.map(opt => opt.key).join('\n');
-      }
-      
-      document.getElementById('fieldModal').classList.add('active');
-    }
-
-    // フィールド型オプションの更新
-    function updateFieldTypeOptions() {
-      const type = document.getElementById('fieldType').value;
-      const optionsDiv = document.getElementById('fieldTypeOptions');
-      
-      if (type === 'enum' || type === 'multiselect') {
-        optionsDiv.style.display = 'block';
-      } else {
-        optionsDiv.style.display = 'none';
-      }
-    }
-
-    // フィールドを保存
-    function saveField() {
-      const key = document.getElementById('fieldKey').value.trim();
-      const displayName = document.getElementById('fieldDisplayName').value.trim();
-      const type = document.getElementById('fieldType').value;
-      const required = document.getElementById('fieldRequired').checked;
-      const description = document.getElementById('fieldDescription').value.trim();
-      const enumOptions = document.getElementById('fieldEnumOptions').value.trim();
-
-      if (!key || !displayName || !type) {
-        showMessage('', 'フィールドキー、表示名、型は必須です', 'error');
-        return;
-      }
-
-      if ((type === 'enum' || type === 'multiselect') && !enumOptions) {
-        showMessage('', '選択肢型の場合、選択肢を入力してください', 'error');
-        return;
-      }
-
-      const field = {
-        key: key,
-        displayName: displayName,
-        type: type,
-        hidden: !required,
-        description: description
-      };
-
-      if (type === 'enum' || type === 'multiselect') {
-        field.options = enumOptions.split('\n').filter(opt => opt.trim()).map(opt => ({
-          key: opt.trim(),
-          displayName: opt.trim()
-        }));
-      }
-
-      if (currentSelectedFieldIndex !== null) {
-        fieldsInModal[currentSelectedFieldIndex] = field;
-      } else {
-        fieldsInModal.push(field);
-      }
-
-      closeFieldModal();
-      renderFieldsList();
-    }
-
-    // フィールドを削除
-    function deleteField(index) {
-      if (confirm('このフィールドを削除しますか？')) {
-        fieldsInModal.splice(index, 1);
-        renderFieldsList();
-      }
-    }
-
-    // テンプレートを保存
-    async function saveTemplate() {
-      const displayName = document.getElementById('templateDisplayName').value.trim();
-      const templateKey = document.getElementById('templateKey').value.trim();
-      const scope = document.getElementById('templateScope').value;
-      const description = document.getElementById('templateDescription').value.trim();
-      const token = document.getElementById('token').value;
-
-      if (!displayName || !templateKey || !scope) {
-        showMessage('', 'テンプレート表示名、キー、スコープは必須です', 'error');
-        return;
-      }
-
-      if (fieldsInModal.length === 0) {
-        showMessage('', 'フィールドを少なくとも1つ追加してください', 'error');
-        return;
-      }
-
-      saveSettings();
-
-      const payload = {
-        scope: scope,
-        displayName: displayName,
-        templateKey: templateKey,
-        description: description,
-        fields: fieldsInModal.map(field => {
-          const obj = {
-            type: field.type,
-            key: field.key,
-            displayName: field.displayName,
-            hidden: field.hidden || false,
-            description: field.description || ''
-          };
-
-          if ((field.type === 'enum' || field.type === 'multiselect') && field.options) {
-            obj.options = field.options;
-          }
-
-          return obj;
-        })
-      };
-
-      try {
-        let url = 'https://api.box.com/2.0/metadata_templates';
-        let method = 'POST';
-
-        if (currentEditingTemplate) {
-          url = `https://api.box.com/2.0/metadata_templates/${currentEditingTemplate.id}`;
-          method = 'PUT';
-        }
-
-        const response = await fetch(url, {
-          method: method,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (response.ok || response.status === 201) {
-          showMessage('listMessage', currentEditingTemplate ? 'テンプレートを更新しました' : 'テンプレートを作成しました', 'success');
-          closeTemplateModal();
-          await loadTemplates();
-        } else {
-          const error = await response.json();
-          showMessage('listMessage', `エラー: ${error.message || response.statusText}`, 'error');
-        }
-      } catch (error) {
-        showMessage('listMessage', `エラー: ${error.message}`, 'error');
-      }
-    }
-
-    // テンプレートを削除
-    async function deleteTemplate(templateId) {
-      if (!confirm('このテンプレートを削除しますか？ この操作は取り消せません。')) {
-        return;
-      }
-
-      const token = document.getElementById('token').value;
-
-      try {
-        const response = await fetch(`https://api.box.com/2.0/metadata_templates/${templateId}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok || response.status === 204) {
-          showMessage('listMessage', 'テンプレートを削除しました', 'success');
-          await loadTemplates();
-        } else {
-          showMessage('listMessage', `削除エラー: ${response.status} - ${response.statusText}`, 'error');
-        }
-      } catch (error) {
-        showMessage('listMessage', `エラー: ${error.message}`, 'error');
-      }
-    }
-
-    // モーダルを閉じる
-    function closeTemplateModal() {
-      document.getElementById('templateModal').classList.remove('active');
-    }
-
-    function closeFieldModal() {
-      document.getElementById('fieldModal').classList.remove('active');
-      currentSelectedFieldIndex = null;
-    }
-
-    function closeTemplateDetailModal() {
-      document.getElementById('templateDetailModal').classList.remove('active');
-    }
-
-    function closeModalOnBackdrop(event, modalId) {
-      if (event.target.id === modalId) {
-        document.getElementById(modalId).classList.remove('active');
-      }
-    }
-
-    // ローディング表示
-    function toggleLoading(show) {
-      document.getElementById('loadingIndicator').style.display = show ? 'block' : 'none';
-      document.getElementById('templateListWrapper').style.display = show ? 'none' : 'block';
-    }
-
-    // メッセージ表示
-    function showMessage(elementId, message, type) {
-      const element = document.getElementById(elementId);
-      if (!element) return;
-
-      element.className = `status ${type}`;
-      element.textContent = message;
-    }
-
-    // サイドバー切り替え
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('collapsed');
     }
 
-    // ページ遷移前に設定を保存
+    // トークン・フォルダIDをlocalStorageに保存
+    function saveSettings() {
+      localStorage.setItem('boxToken', tokenEl.value);
+      localStorage.setItem('boxFolderId', folderIdEl.value);
+    }
+
     function navigateWithSettings(url) {
       saveSettings();
       window.location.href = url;
     }
 
-    // HTML エスケープ
-    function escapeHtml(text) {
-      const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      };
-      return text.replace(/[&<>"']/g, m => map[m]);
+    function buildFailedFetchHelpHtml() {
+      const origin = location.origin;
+      return `
+        <div class="status-detail-row"><span class="status-detail-label">原因候補:</span><span class="status-detail-value">CORS未設定 / ネットワーク制限 / 無効なトークン</span></div>
+        <div class="status-detail-row"><span class="status-detail-label">現在のOrigin:</span><span class="status-detail-value">${origin}</span></div>
+        <div class="status-detail-row"><span class="status-detail-label">対処1:</span><span class="status-detail-value">Box Developer Console → 対象アプリ → Configuration → CORS Domains に <strong>${location.hostname}</strong> を追加</span></div>
+        <div class="status-detail-row"><span class="status-detail-label">対処2:</span><span class="status-detail-value">保存後、ページを再読み込みして新しいDeveloper Tokenで再試行</span></div>
+        <div class="status-detail-row"><span class="status-detail-label">対処3:</span><span class="status-detail-value">社内ネットワーク制限がある場合は、ローカル起動（GUI起動.bat）で利用</span></div>
+      `;
     }
 
-    // 属性値エスケープ
-    function escapeAttr(text) {
-      return text.replace(/'/g, '&#39;');
+    function isFailedToFetchError(err) {
+      if (!err) return false;
+      const message = String(err.message || '');
+      return err.name === 'TypeError' || /Failed to fetch|NetworkError/i.test(message);
     }
+
+    async function checkTokenServerAvailability() {
+      // GitHub Pages(https)等の非ローカル環境ではlocalhostトークンサーバーを使わない
+      if (!IS_LOCALHOST) {
+        useTokenServer = false;
+        return;
+      }
+
+      try {
+        const res = await fetch(TOKEN_SERVER_URL.replace('/api/token', '/api/status'));
+        useTokenServer = res.ok;
+      } catch (e) {
+        useTokenServer = false;
+      }
+    }
+
+    async function getTokenFromServer() {
+      if (!useTokenServer) throw new Error('トークンサーバーが利用できません');
+
+      if (cachedToken && tokenExpireTime && Date.now() < tokenExpireTime) return cachedToken;
+
+      const res = await fetch(TOKEN_SERVER_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'トークン取得に失敗しました');
+
+      cachedToken = data.access_token;
+      tokenExpireTime = Date.now() + (data.expires_in * 1000 * 0.8);
+      tokenEl.value = cachedToken;
+      localStorage.setItem('boxToken', cachedToken);
+      return cachedToken;
+    }
+
+    async function acquireToken() {
+      if (useTokenServer) {
+        return await getTokenFromServer();
+      }
+      const token = tokenEl.value.trim();
+      if (!token) throw new Error('アクセストークンを入力してください。');
+      return token;
+    }
+
+    // 設定を読み込み
+    function loadSettings() {
+      const savedToken = localStorage.getItem('boxToken');
+      const savedFolderId = localStorage.getItem('boxFolderId');
+      if (savedToken) tokenEl.value = savedToken;
+      if (savedFolderId) folderIdEl.value = savedFolderId;
+    }
+
+    async function init() {
+      loadSettings();
+      statusEl.style.visibility = 'hidden';
+      searchStatusEl.style.visibility = 'hidden';
+
+      await checkTokenServerAvailability();
+      if (useTokenServer) {
+        try {
+          await getTokenFromServer();
+          showStatus('🔄 トークンサーバーからトークンを自動取得しました', 'success');
+        } catch (e) {
+          showStatus('トークンサーバーからの取得に失敗しました: ' + e.message, 'error');
+        }
+      } else if (!IS_LOCALHOST) {
+        showStatus('🌐 GitHub Pagesモード: 手動トークン入力で動作します（localhostトークンサーバーは使用しません）', 'info');
+      }
+    }
+
+    // 疎通確認
+    async function testConnection() {
+      let token;
+      try {
+        token = await acquireToken();
+      } catch (err) {
+        showStatus(err.message, 'error');
+        return;
+      }
+      const folderId = folderIdEl.value.trim() || '0';
+
+      showStatus('疎通確認中...', 'info');
+      testConnectionBtn.disabled = true;
+
+      try {
+        // JWT トークン有効期限を取得
+        const expiryInfo = getTokenExpiryInfo(token);
+        let expiryDetailsHtml = '';
+        if (expiryInfo) {
+          const expiryClass = expiryInfo.isExpired ? 'expiry-expired' : (expiryInfo.remainingMs < 86400000 ? 'expiry-warning' : '');
+          expiryDetailsHtml += `<div class="status-detail-row"><span class="status-detail-label">有効期限:</span><span class="status-detail-value ${expiryClass}">${expiryInfo.expireAt} (残り: ${expiryInfo.expiresIn})</span></div>`;
+        }
+
+        // ユーザー情報を取得
+        const userUrl = 'https://api.box.com/2.0/users/me?fields=id,name,email,login';
+        const userRes = await fetch(userUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!userRes.ok) {
+          const text = await userRes.text();
+          throw new Error(`HTTP ${userRes.status} - トークンが無効またはアクセス権限がありません`);
+        }
+
+        const userData = await userRes.json();
+
+        // フォルダ情報を取得
+        const folderUrl = `https://api.box.com/2.0/folders/${encodeURIComponent(folderId)}?fields=id,name`;
+        const folderRes = await fetch(folderUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!folderRes.ok) {
+          throw new Error(`フォルダID ${folderId} が見つかりません`);
+        }
+
+        const folderData = await folderRes.json();
+
+        // 詳細情報を表示
+        let detailsHtml = '';
+        detailsHtml += `<div class="status-detail-row"><span class="status-detail-label">ユーザー:</span><span class="status-detail-value">${userData.name} (${userData.email || userData.login})</span></div>`;
+        detailsHtml += `<div class="status-detail-row"><span class="status-detail-label">User ID:</span><span class="status-detail-value">${userData.id}</span></div>`;
+        detailsHtml += `<div class="status-detail-row"><span class="status-detail-label">検索対象:</span><span class="status-detail-value">${folderData.name} (ID: ${folderData.id})</span></div>`;
+        detailsHtml += expiryDetailsHtml;
+        
+        showStatusWithDetails('✅ 疎通成功！', 'success', detailsHtml);
+        saveSettings();
+      } catch (err) {
+        console.error(err);
+        if (isFailedToFetchError(err)) {
+          showStatusWithDetails('❌ 疎通失敗: Failed to fetch', 'error', buildFailedFetchHelpHtml());
+        } else {
+          showStatus(`❌ 疎通失敗: ${err.message}`, 'error');
+        }
+      } finally {
+        testConnectionBtn.disabled = false;
+      }
+    }
+
+    function showStatus(message, type = 'info') {
+      statusEl.textContent = message;
+      statusEl.style.visibility = 'visible';
+      statusEl.className = 'status ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : 'info');
+      statusEl.innerHTML = message;
+    }
+
+    function showStatusWithDetails(message, type, details) {
+      statusEl.innerHTML = message;
+      statusEl.style.visibility = 'visible';
+      statusEl.className = 'status ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : 'info');
+      
+      if (details) {
+        const detailsDiv = document.createElement('div');
+        detailsDiv.className = `status-details ${type}`;
+        detailsDiv.innerHTML = details;
+        statusEl.appendChild(detailsDiv);
+      }
+    }
+
+    function decodeJWT(token) {
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        
+        const payload = parts[1];
+        // Base64 decode (標準ブラウザ関数)
+        const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+        return decoded;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getTokenExpiryInfo(token) {
+      const decoded = decodeJWT(token);
+      if (!decoded || !decoded.exp) return null;
+      
+      const expiryTime = decoded.exp * 1000;
+      const now = Date.now();
+      const remaining = expiryTime - now;
+      
+      return {
+        expireAt: new Date(expiryTime).toLocaleString('ja-JP'),
+        remainingMs: remaining,
+        isExpired: remaining <= 0,
+        expiresIn: formatDuration(remaining)
+      };
+    }
+
+    function formatDuration(ms) {
+      if (ms <= 0) return '失効';
+      
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      
+      if (days > 0) return `${days}日${hours % 24}時間`;
+      if (hours > 0) return `${hours}時間${minutes % 60}分`;
+      if (minutes > 0) return `${minutes}分${seconds % 60}秒`;
+      return `${seconds}秒`;
+    }
+
+    function goToShareLinks(itemId, itemName, itemType) {
+      if (itemType === 'folder') {
+        goToShareLinksWithFolderContents(itemId, itemName);
+      } else {
+        const selectedItems = [{id: itemId, name: itemName, type: itemType}];
+        sessionStorage.setItem('selectedItems', JSON.stringify(selectedItems));
+        sessionStorage.setItem('boxToken', tokenEl.value.trim());
+        window.location.href = 'box_share_links.html';
+      }
+    }
+
+    async function goToShareLinksWithFolderContents(folderId, folderName) {
+      const token = tokenEl.value.trim();
+      if (!token) {
+        showStatus('アクセストークンを入力してください。', 'error');
+        return;
+      }
+      try {
+        const items = await fetchFolderContents(token, folderId);
+        sessionStorage.setItem('selectedItems', JSON.stringify(items));
+        sessionStorage.setItem('boxToken', token);
+        window.location.href = 'box_share_links.html';
+      } catch (err) {
+        console.error(err);
+        showStatus(`フォルダ内容の取得に失敗しました: ${err.message}`, 'error');
+      }
+    }
+
+    async function fetchFolderContents(token, folderId, maxDepth = 2, currentDepth = 0) {
+      const items = [];
+      if (currentDepth >= maxDepth) return items;
+      try {
+        const url = new URL(`https://api.box.com/2.0/folders/${encodeURIComponent(folderId)}/items`);
+        url.searchParams.set('limit', '1000');
+        url.searchParams.set('fields', 'name,type,id');
+        const res = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {'Authorization': `Bearer ${token}`, 'Accept': 'application/json'}
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const entries = data.entries || [];
+        for (const entry of entries) {
+          items.push({id: entry.id, name: entry.name, type: entry.type});
+          if (entry.type === 'folder' && currentDepth < maxDepth - 1) {
+            const subItems = await fetchFolderContents(token, entry.id, maxDepth, currentDepth + 1);
+            items.push(...subItems);
+          }
+        }
+      } catch (err) {
+        console.warn(`フォルダ ${folderId} からの取得エラー:`, err);
+      }
+      return items;
+    }
+
+    function setSearchStatus(message, type = 'info') {
+      searchStatusEl.textContent = message;
+      searchStatusEl.style.visibility = 'visible';
+      searchStatusEl.className = 'status ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : '');
+    }
+
+    function highlightText(text, query) {
+      if (!query || !text || !highlightToggleEl.checked) return text;
+      const keywords = query.trim().split(/\s+/).filter(k => k.length > 0);
+      let result = String(text);
+      keywords.forEach(keyword => {
+        const regex = new RegExp(`(${escapeRegex(keyword)})`, 'gi');
+        result = result.replace(regex, '<span class="highlight">$1</span>');
+      });
+      return result;
+    }
+
+    function escapeRegex(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function renderResults(entries) {
+      allResults = entries || [];
+      currentPage = 0;
+      itemsPerPage = Math.max(1, Math.min(200, parseInt(searchLimitEl.value, 10) || 20));
+      currentSearchQuery = searchQueryEl.value.trim();
+      
+      if (allResults.length === 0) {
+        resultsBody.innerHTML = '<tr><td colspan="6" class="muted">該当なし</td></tr>';
+        paginationEl.style.display = 'none';
+        paginationTopEl.style.display = 'none';
+        return;
+      }
+
+      renderPage();
+    }
+
+    function renderPage() {
+      const start = currentPage * itemsPerPage;
+      const end = start + itemsPerPage;
+      const pageItems = allResults.slice(start, end);
+
+      const rows = pageItems.map(item => {
+        const isFolder = item.type === 'folder';
+        const icon = isFolder ? '📁' : '📄';
+        const size = isFolder ? '-' : formatSize(item.size);
+        const pathParts = (item.path_collection?.entries || []).map(p => p.name).filter(Boolean);
+        const path = pathParts.length ? '/' + pathParts.join('/') + '/' : '/';
+        const modified = item.modified_at ? formatDate(item.modified_at) : '-';
+        const appLink = isFolder ? `https://app.box.com/folder/${item.id}` : `https://app.box.com/file/${item.id}`;
+        
+        const highlightedName = highlightText(item.name || '-', currentSearchQuery);
+        const highlightedPath = highlightText(path, currentSearchQuery);
+        
+        return `<tr>
+          <td style="text-align:center; font-size:24px;">${icon}</td>
+          <td>${highlightedName}</td>
+          <td>${modified}</td>
+          <td>${size}</td>
+          <td style="word-break:break-all;">${highlightedPath}</td>
+          <td class="actions">
+            <a href="${appLink}" target="_blank" rel="noopener">開く</a>
+            <span style="margin: 0 4px; color:#999;">/</span>
+            <a href="javascript:void(0)" style="cursor:pointer;" onclick="goToShareLinks('${item.id}', '${item.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${item.type}')">🔗 共有</a>
+          </td>
+        </tr>`;
+      }).join('');
+
+      resultsBody.innerHTML = rows;
+
+      // ページング表示更新
+      const totalPages = Math.ceil(allResults.length / itemsPerPage);
+      const pageText = `${currentPage + 1} / ${totalPages} ページ (全${allResults.length}件)`;
+      const showPagination = totalPages > 1;
+      
+      pageInfoEl.textContent = pageText;
+      pageInfoTopEl.textContent = pageText;
+      
+      prevBtn.disabled = currentPage === 0;
+      prevBtnTop.disabled = currentPage === 0;
+      
+      nextBtn.disabled = currentPage >= totalPages - 1;
+      nextBtnTop.disabled = currentPage >= totalPages - 1;
+      
+      paginationEl.style.display = showPagination ? 'flex' : 'none';
+      paginationTopEl.style.display = showPagination ? 'flex' : 'none';
+    }
+
+    function formatSize(bytes) {
+      if (!bytes && bytes !== 0) return '-';
+      const units = ['B','KB','MB','GB','TB'];
+      let val = bytes;
+      let idx = 0;
+      while (val >= 1024 && idx < units.length - 1) {
+        val /= 1024;
+        idx++;
+      }
+      return `${val.toFixed(val >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+    }
+
+    function formatDate(iso) {
+      try {
+        const d = new Date(iso);
+        return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('ja-JP');
+      } catch {
+        return '-';
+      }
+    }
+
+    async function runSearch() {
+      let token;
+      const query = searchQueryEl.value.trim();
+      const type = searchTypeEl.value;
+      const folderId = folderIdEl.value.trim();
+      const useFolderScope = useFolderScopeEl.checked && folderId !== '';
+
+      try {
+        token = await acquireToken();
+      } catch (err) {
+        setSearchStatus(err.message, 'error');
+        return;
+      }
+      if (!query) {
+        setSearchStatus('キーワードを入力してください。', 'error');
+        return;
+      }
+
+      setSearchStatus('検索中...', 'info');
+      searchBtn.disabled = true;
+
+      const params = new URLSearchParams();
+      params.set('query', query);
+      params.set('limit', '200'); // API最大値で取得
+      params.set('fields', 'id,name,type,modified_at,size,path_collection');
+      if (type) params.set('type', type);
+      if (useFolderScope && folderId !== '0') params.set('ancestor_folder_ids', folderId);
+
+      try {
+        const res = await fetch(`https://api.box.com/2.0/search?${params.toString()}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`HTTP ${res.status} - ${text}`);
+        }
+
+        const data = await res.json();
+        renderResults(data.entries || []);
+        setSearchStatus(`検索完了 (${(data.entries || []).length}件)`, 'success');
+        saveSettings();
+      } catch (err) {
+        console.error(err);
+        if (isFailedToFetchError(err)) {
+          setSearchStatus('検索に失敗しました: Failed to fetch（CORS設定を確認してください）', 'error');
+        } else {
+          setSearchStatus(`検索に失敗しました: ${err.message}`, 'error');
+        }
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    // 入力時に自動保存
+    tokenEl.addEventListener('input', saveSettings);
+    folderIdEl.addEventListener('input', saveSettings);
+
+    // 疎通確認ボタン
+    testConnectionBtn.addEventListener('click', testConnection);
+    // 検索ボタン
+    searchBtn.addEventListener('click', runSearch);
+
+    // ページングボタン（下部）
+    prevBtn.addEventListener('click', () => {
+      if (currentPage > 0) {
+        currentPage--;
+        renderPage();
+      }
+    });
+
+    nextBtn.addEventListener('click', () => {
+      const totalPages = Math.ceil(allResults.length / itemsPerPage);
+      if (currentPage < totalPages - 1) {
+        currentPage++;
+        renderPage();
+      }
+    });
+
+    // ページングボタン（上部）
+    prevBtnTop.addEventListener('click', () => {
+      if (currentPage > 0) {
+        currentPage--;
+        renderPage();
+      }
+    });
+
+    nextBtnTop.addEventListener('click', () => {
+      const totalPages = Math.ceil(allResults.length / itemsPerPage);
+      if (currentPage < totalPages - 1) {
+        currentPage++;
+        renderPage();
+      }
+    });
+
+    // Enterキーで検索
+    searchQueryEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
+
+    // ハイライト設定変更時に再描画
+    highlightToggleEl.addEventListener('change', () => {
+      if (allResults.length > 0) {
+        renderPage();
+      }
+    });
+
+    // ページ読み込み時に設定を復元 + トークン自動取得
+    init();
   </script>
 </body>
 </html>
