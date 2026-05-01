@@ -578,7 +578,7 @@
   <div class="container">
     <div class="card">
       <div class="header">
-        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.6</span></h1>
+        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.7</span></h1>
         <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
       </div>
 
@@ -1013,16 +1013,21 @@
     function updateModeButtons() {
       var modeNowLinkEl = document.getElementById("modeNowLink");
       var modeNowUnlinkEl = document.getElementById("modeNowUnlink");
+      var modeFutureUnlinkEl = document.getElementById("modeFutureUnlink");
       // 現在ビーコンが紐づいている場合 → いますぐ登録をdisable
       modeNowLinkEl.disabled = state.currentOwner !== null;
-      // 現在ビーコンが紐づいていない場合 → いますぐ解除をdisable
+      // 現在ビーコンが紐づいていない場合 → 解除系をdisable
       modeNowUnlinkEl.disabled = state.currentOwner === null;
+      modeFutureUnlinkEl.disabled = state.currentOwner === null;
 
       // disable された方が選択済みなら、有効な方へ自動で寄せる
       if (modeNowLinkEl.disabled && modeNowLinkEl.checked) {
         modeNowUnlinkEl.checked = true;
       }
       if (modeNowUnlinkEl.disabled && modeNowUnlinkEl.checked) {
+        modeNowLinkEl.checked = true;
+      }
+      if (modeFutureUnlinkEl.disabled && modeFutureUnlinkEl.checked) {
         modeNowLinkEl.checked = true;
       }
     }
@@ -1049,6 +1054,7 @@
       document.getElementById("modeNowLink").checked = true;
       document.getElementById("modeNowLink").disabled = false;
       document.getElementById("modeNowUnlink").disabled = false;
+      document.getElementById("modeFutureUnlink").disabled = false;
       updateFutureDateVisibility();
       reservationDateInput.value = "";
     }
