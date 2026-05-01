@@ -579,7 +579,7 @@
   <div class="container">
     <div class="card">
       <div class="header">
-        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.9</span></h1>
+        <h1>ビーコン登録CSVメーカー <span style="font-size:0.5em;font-weight:400;color:var(--sub);">v1.5.10</span></h1>
         <p class="lead">OneDrive上の発信機管理台帳からビーコン名でMACアドレスを検索し、登録用CSVを出力します。</p>
       </div>
 
@@ -739,7 +739,7 @@
         <div id="importGuide" class="next-step hidden">
           <div class="next-step-label"><span class="step-num">3</span>ビーコン管理画面でインポート</div>
           <p>ダウンロードしたCSVを、ビーコン管理画面の「インポート」からアップロードしてください。</p>
-          <a href="https://account.activedirectory.windowsazure.com/applications/signin/9be087b3-b655-469f-bfd1-ab42e0e167ca?tenantId=c742fe68-9dcd-4f3c-ba09-0839fa6ac440" target="_blank" rel="noopener" class="import-link">ビーコン管理画面を開く（SSO） ↗</a>
+          <a href="#" id="importRedirectLink" class="import-link">ビーコン管理画面を開く（SSO） ↗</a>
           <p class="helper" style="margin-top:4px;">SSO認証後にトップ画面が開きます。<br>ビーコン管理ページへは <a href="https://app.drjoy.jp/at/at0087" target="_blank" rel="noopener" style="color:var(--accent);font-weight:700;">こちら</a> から直接アクセスもできます。</p>
         </div>
 
@@ -796,6 +796,7 @@
     const futureMacAddressSpan = document.getElementById("futureMacAddress");
     const futureDateField = document.getElementById("futureDateField");
     const reservationDateInput = document.getElementById("reservationDate");
+    const importRedirectLink = document.getElementById("importRedirectLink");
 
     /* ========================================================
      *  状態
@@ -1127,6 +1128,24 @@
       ];
     }
 
+    function openImportPageWithRedirect() {
+      var ssoUrl = "https://account.activedirectory.windowsazure.com/applications/signin/9be087b3-b655-469f-bfd1-ab42e0e167ca?tenantId=c742fe68-9dcd-4f3c-ba09-0839fa6ac440";
+      var targetUrl = "https://app.drjoy.jp/at/at0087";
+      // 新規タブでSSOを開き、その同タブを目的ページへ遷移させる
+      var popup = window.open(ssoUrl, "_blank");
+      if (!popup) {
+        setMessage("ポップアップがブロックされました。許可して再実行してください。", "error");
+        return;
+      }
+      setTimeout(function () {
+        try {
+          popup.location.href = targetUrl;
+        } catch (err) {
+          console.warn("[IMPORT] リダイレクト失敗:", err);
+        }
+      }, 2500);
+    }
+
     staffCodeInput.addEventListener("input", function () {
       staffCodeInput.value = normalizeStaffCode(staffCodeInput.value);
     });
@@ -1138,6 +1157,10 @@
 
     document.querySelectorAll('input[name="linkMode"]').forEach(function(radio) {
       radio.addEventListener("change", updateFutureDateVisibility);
+    });
+    importRedirectLink.addEventListener("click", function (event) {
+      event.preventDefault();
+      openImportPageWithRedirect();
     });
     beaconNameInput.addEventListener("input", resetResult);
     staffNoSearchInput.addEventListener("input", function () {
