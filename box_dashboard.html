@@ -78,6 +78,22 @@
     .pagination button:disabled { opacity:0.4; cursor:not-allowed; }
     .pagination .page-info { color:var(--muted); font-size:14px; }
     .highlight { background:#ffeb3b; font-weight:600; padding:2px 4px; border-radius:3px; }
+    .version-badge {
+      position:fixed;
+      left:12px;
+      bottom:10px;
+      z-index:9999;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid #cbd5e1;
+      background:rgba(255,255,255,0.9);
+      color:#475569;
+      font-size:11px;
+      line-height:1;
+      box-shadow:0 2px 8px rgba(15,23,42,.08);
+      pointer-events:none;
+      user-select:none;
+    }
   </style>
 </head>
 <body>
@@ -228,9 +244,17 @@
       </section>
     </div>
   </div>
+  <div id="versionBadge" class="version-badge"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-base64/3.7.5/js-base64.min.js"></script>
   <script>
+    const APP_VERSION = 'box_dashboard v2026.06.02-01';
+    console.info(`[${APP_VERSION}] loaded at ${new Date().toISOString()}`);
+    const versionBadgeEl = document.getElementById('versionBadge');
+    if (versionBadgeEl) {
+      versionBadgeEl.textContent = APP_VERSION;
+    }
+
     const tokenEl = document.getElementById('token');
     const oauthRefreshTokenEl = document.getElementById('oauthRefreshToken');
     const oauthClientIdEl = document.getElementById('oauthClientId');
@@ -313,11 +337,15 @@
       const json = details?.json || {};
       const code = json.code || json.error || '-';
       const message = json.message || json.error_description || details?.text || '-';
+      const origin = location.origin;
 
       let hint = 'トークン/権限/対象フォルダアクセス権を確認してください。';
+      if (code === 'cors_origin_not_whitelisted') {
+        hint = `CORS未許可です。Box Developer Console の CORS Domains に ${location.hostname}（必要に応じて ${origin}）を追加し、保存後に数分待って再試行してください。`;
+      }
       if (status === 401) {
         hint = 'アクセストークン失効の可能性があります。♻️ OAuth更新を実行してください。';
-      } else if (status === 403) {
+      } else if (status === 403 && code !== 'cors_origin_not_whitelisted') {
         hint = 'アプリのスコープ不足、管理者承認未完了、または対象フォルダへのアクセス権不足の可能性があります。';
       } else if (status === 404) {
         hint = 'フォルダIDが誤っている可能性があります。';
