@@ -94,6 +94,14 @@
       pointer-events:none;
       user-select:none;
     }
+    .diagnostic-box {
+      margin-top:12px;
+      padding:12px;
+      border:1px dashed #cbd5e1;
+      border-radius:10px;
+      background:#f8fafc;
+      font-size:13px;
+    }
   </style>
 </head>
 <body>
@@ -174,6 +182,10 @@
           </div>
         </div>
         <div class="muted">GitHub Pages運用時は OAuth情報を入力して更新できます（Client Secretはこのブラウザセッション内のみ保持）。</div>
+        <div class="diagnostic-box">
+          <div class="status-detail-row"><span class="status-detail-label">現在のOrigin:</span><span id="diagnosticOrigin" class="status-detail-value">-</span></div>
+          <div class="status-detail-row"><span class="status-detail-label">入力中のClient ID:</span><span id="diagnosticClientId" class="status-detail-value">-</span></div>
+        </div>
         <div id="status" class="status" style="visibility:hidden;"></div>
       </section>
 
@@ -248,12 +260,14 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-base64/3.7.5/js-base64.min.js"></script>
   <script>
-    const APP_VERSION = 'box_dashboard v2026.06.02-02';
+    const APP_VERSION = 'box_dashboard v2026.06.02-03';
     console.info(`[${APP_VERSION}] loaded at ${new Date().toISOString()}`);
     const versionBadgeEl = document.getElementById('versionBadge');
     if (versionBadgeEl) {
       versionBadgeEl.textContent = APP_VERSION;
     }
+    const diagnosticOriginEl = document.getElementById('diagnosticOrigin');
+    const diagnosticClientIdEl = document.getElementById('diagnosticClientId');
 
     const tokenEl = document.getElementById('token');
     const oauthRefreshTokenEl = document.getElementById('oauthRefreshToken');
@@ -298,6 +312,18 @@
       document.getElementById('sidebar').classList.toggle('collapsed');
     }
 
+    function maskClientId(value) {
+      const normalized = String(value || '').trim();
+      if (!normalized) return '未入力';
+      if (normalized.length <= 8) return normalized;
+      return `${normalized.slice(0, 4)}...${normalized.slice(-4)}`;
+    }
+
+    function updateDiagnostics() {
+      if (diagnosticOriginEl) diagnosticOriginEl.textContent = location.origin || '-';
+      if (diagnosticClientIdEl) diagnosticClientIdEl.textContent = maskClientId(oauthClientIdEl.value);
+    }
+
     // トークン・フォルダIDをlocalStorageに保存
     function saveSettings() {
       localStorage.setItem('boxToken', tokenEl.value);
@@ -305,6 +331,7 @@
       localStorage.setItem('boxOauthRefreshToken', oauthRefreshTokenEl.value);
       localStorage.setItem('boxOauthClientId', oauthClientIdEl.value);
       sessionStorage.setItem('boxOauthClientSecret', oauthClientSecretEl.value);
+      updateDiagnostics();
     }
 
     function navigateWithSettings(url) {
@@ -462,6 +489,7 @@
       if (savedOauthRefreshToken) oauthRefreshTokenEl.value = savedOauthRefreshToken;
       if (savedOauthClientId) oauthClientIdEl.value = savedOauthClientId;
       if (savedOauthClientSecret) oauthClientSecretEl.value = savedOauthClientSecret;
+      updateDiagnostics();
     }
 
     function hasOAuthRefreshInput() {
