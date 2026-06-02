@@ -134,9 +134,30 @@
             <input id="folderId" type="text" placeholder="例: 0（ルート）" value="0" />
           </div>
           <div class="field" style="flex:0 0 auto; margin-bottom:0; display:flex; align-items:flex-end;">
+            <button id="refreshTokenBtn" class="secondary" style="white-space:nowrap;">🔄 トークン更新</button>
+          </div>
+          <div class="field" style="flex:0 0 auto; margin-bottom:0; display:flex; align-items:flex-end;">
             <button id="testConnectionBtn" class="secondary" style="white-space:nowrap;">🔌 疎通確認</button>
           </div>
         </div>
+        <div class="row">
+          <div class="field" style="flex:2; margin-bottom:0;">
+            <label for="oauthRefreshToken">OAuthリフレッシュトークン（任意）</label>
+            <input id="oauthRefreshToken" type="text" placeholder="例: 4u8x..." />
+          </div>
+          <div class="field" style="flex:1; margin-bottom:0;">
+            <label for="oauthClientId">OAuth Client ID（任意）</label>
+            <input id="oauthClientId" type="text" placeholder="例: xxxxx" />
+          </div>
+          <div class="field" style="flex:1; margin-bottom:0;">
+            <label for="oauthClientSecret">OAuth Client Secret（任意）</label>
+            <input id="oauthClientSecret" type="password" placeholder="例: xxxxx" />
+          </div>
+          <div class="field" style="flex:0 0 auto; margin-bottom:0; display:flex; align-items:flex-end;">
+            <button id="oauthRefreshBtn" class="secondary" style="white-space:nowrap;">♻️ OAuth更新</button>
+          </div>
+        </div>
+        <div class="muted">GitHub Pages運用時は OAuth情報を入力して更新できます（Client Secretはこのブラウザセッション内のみ保持）。</div>
         <div id="status" class="status" style="visibility:hidden;"></div>
       </section>
 
@@ -211,8 +232,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-base64/3.7.5/js-base64.min.js"></script>
   <script>
     const tokenEl = document.getElementById('token');
+    const oauthRefreshTokenEl = document.getElementById('oauthRefreshToken');
+    const oauthClientIdEl = document.getElementById('oauthClientId');
+    const oauthClientSecretEl = document.getElementById('oauthClientSecret');
     const folderIdEl = document.getElementById('folderId');
     const statusEl = document.getElementById('status');
+    const refreshTokenBtn = document.getElementById('refreshTokenBtn');
+    const oauthRefreshBtn = document.getElementById('oauthRefreshBtn');
     const testConnectionBtn = document.getElementById('testConnectionBtn');
     const searchQueryEl = document.getElementById('searchQuery');
     const searchTypeEl = document.getElementById('searchType');
@@ -232,6 +258,8 @@
     const highlightToggleEl = document.getElementById('highlightToggle');
     const IS_LOCALHOST = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     const TOKEN_SERVER_URL = 'http://127.0.0.1:5000/api/token';
+    const TOKEN_REFRESH_SERVER_URL = 'http://127.0.0.1:5000/api/token/refresh';
+    const BOX_OAUTH_TOKEN_URL = 'https://api.box.com/oauth2/token';
 
     let useTokenServer = false;
     let cachedToken = null;
@@ -250,6 +278,9 @@
     function saveSettings() {
       localStorage.setItem('boxToken', tokenEl.value);
       localStorage.setItem('boxFolderId', folderIdEl.value);
+      localStorage.setItem('boxOauthRefreshToken', oauthRefreshTokenEl.value);
+      localStorage.setItem('boxOauthClientId', oauthClientIdEl.value);
+      sessionStorage.setItem('boxOauthClientSecret', oauthClientSecretEl.value);
     }
 
     function navigateWithSettings(url) {
@@ -289,8 +320,13 @@
       }
     }
 
-    async function getTokenFromServer() {
+    async function getTokenFromServer(forceRefresh = false) {
       if (!useTokenServer) throw new Error('トークンサーバーが利用できません');
+
+      if (forceRefresh) {
+        cachedToken = null;
+        tokenExpireTime = null;
+      }
 
       if (cachedToken && tokenExpireTime && Date.now() < tokenExpireTime) return cachedToken;
 
@@ -306,21 +342,152 @@
       return cachedToken;
     }
 
-    async function acquireToken() {
+    async function acquireToken(forceRefresh = false) {
       if (useTokenServer) {
-        return await getTokenFromServer();
+        return await getTokenFromServer(forceRefresh);
       }
       const token = tokenEl.value.trim();
       if (!token) throw new Error('アクセストークンを入力してください。');
       return token;
     }
 
+    async function boxApiFetch(url, options = {}, retryOnUnauthorized = true) {
+      const token = await acquireToken();
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        ...(options.headers || {})
+      };
+
+      let response = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      if (response.status === 401 && useTokenServer && retryOnUnauthorized) {
+        const newToken = await acquireToken(true);
+        response = await fetch(url, {
+          ...options,
+          headers: {
+            ...headers,
+            'Authorization': `Bearer ${newToken}`
+          }
+        });
+      }
+
+      if (response.status === 401 && !useTokenServer && retryOnUnauthorized && hasOAuthRefreshInput()) {
+        const newToken = await refreshAccessTokenWithOAuth({ silent: true });
+        response = await fetch(url, {
+          ...options,
+          headers: {
+            ...headers,
+            'Authorization': `Bearer ${newToken}`
+          }
+        });
+      }
+
+      return response;
+    }
+
     // 設定を読み込み
     function loadSettings() {
       const savedToken = localStorage.getItem('boxToken');
       const savedFolderId = localStorage.getItem('boxFolderId');
+      const savedOauthRefreshToken = localStorage.getItem('boxOauthRefreshToken');
+      const savedOauthClientId = localStorage.getItem('boxOauthClientId');
+      const savedOauthClientSecret = sessionStorage.getItem('boxOauthClientSecret');
       if (savedToken) tokenEl.value = savedToken;
       if (savedFolderId) folderIdEl.value = savedFolderId;
+      if (savedOauthRefreshToken) oauthRefreshTokenEl.value = savedOauthRefreshToken;
+      if (savedOauthClientId) oauthClientIdEl.value = savedOauthClientId;
+      if (savedOauthClientSecret) oauthClientSecretEl.value = savedOauthClientSecret;
+    }
+
+    function hasOAuthRefreshInput() {
+      return !!oauthRefreshTokenEl.value.trim();
+    }
+
+    async function refreshAccessTokenWithOAuth({ silent = false } = {}) {
+      const refreshToken = oauthRefreshTokenEl.value.trim();
+      if (!refreshToken) throw new Error('OAuthリフレッシュトークンを入力してください。');
+
+      let response;
+      if (useTokenServer) {
+        const payload = { refresh_token: refreshToken };
+        if (oauthClientIdEl.value.trim()) payload.client_id = oauthClientIdEl.value.trim();
+        if (oauthClientSecretEl.value.trim()) payload.client_secret = oauthClientSecretEl.value.trim();
+
+        response = await fetch(TOKEN_REFRESH_SERVER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        const clientId = oauthClientIdEl.value.trim();
+        const clientSecret = oauthClientSecretEl.value.trim();
+        if (!clientId || !clientSecret) {
+          throw new Error('GitHub Pagesモードでは Client ID / Client Secret が必要です。');
+        }
+
+        const body = new URLSearchParams();
+        body.set('grant_type', 'refresh_token');
+        body.set('refresh_token', refreshToken);
+        body.set('client_id', clientId);
+        body.set('client_secret', clientSecret);
+
+        response = await fetch(BOX_OAUTH_TOKEN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString()
+        });
+      }
+
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = null;
+      }
+
+      if (!response.ok || (data && data.success === false)) {
+        const desc = data?.error_description || data?.error || `HTTP ${response.status}`;
+        throw new Error(`OAuth更新に失敗しました: ${desc}`);
+      }
+
+      const accessToken = data?.access_token;
+      if (!accessToken) throw new Error('OAuth更新レスポンスに access_token がありません。');
+
+      const nextRefreshToken = data?.refresh_token;
+      const expiresIn = Number(data?.expires_in || 3600);
+
+      tokenEl.value = accessToken;
+      cachedToken = accessToken;
+      tokenExpireTime = Date.now() + (expiresIn * 1000 * 0.8);
+      if (nextRefreshToken) oauthRefreshTokenEl.value = nextRefreshToken;
+
+      saveSettings();
+
+      if (!silent) {
+        showStatus('♻️ OAuth更新成功: 新しいアクセストークンを反映しました。', 'success');
+      }
+
+      return accessToken;
+    }
+
+    async function refreshTokenViaOAuthManually() {
+      oauthRefreshBtn.disabled = true;
+      try {
+        await refreshAccessTokenWithOAuth();
+      } catch (err) {
+        console.error(err);
+        if (isFailedToFetchError(err)) {
+          showStatusWithDetails('❌ OAuth更新失敗: Failed to fetch', 'error', buildFailedFetchHelpHtml());
+        } else {
+          showStatus(`❌ OAuth更新失敗: ${err.message}`, 'error');
+        }
+      } finally {
+        oauthRefreshBtn.disabled = false;
+      }
     }
 
     async function init() {
@@ -337,7 +504,45 @@
           showStatus('トークンサーバーからの取得に失敗しました: ' + e.message, 'error');
         }
       } else if (!IS_LOCALHOST) {
-        showStatus('🌐 GitHub Pagesモード: 手動トークン入力で動作します（localhostトークンサーバーは使用しません）', 'info');
+        showStatus('🌐 GitHub Pagesモード: 手動トークン入力または OAuth更新で動作します（localhostトークンサーバーは使用しません）', 'info');
+      }
+    }
+
+    async function refreshTokenManually() {
+      refreshTokenBtn.disabled = true;
+
+      try {
+        if (useTokenServer) {
+          await acquireToken(true);
+          showStatus('🔄 新しいアクセストークンを取得しました', 'success');
+          return;
+        }
+
+        if (hasOAuthRefreshInput()) {
+          await refreshAccessTokenWithOAuth();
+          return;
+        }
+
+        const token = tokenEl.value.trim();
+        if (!token) {
+          showStatus('アクセストークンを入力してください。', 'error');
+          return;
+        }
+
+        const expiryInfo = getTokenExpiryInfo(token);
+        if (expiryInfo && !expiryInfo.isExpired) {
+          showStatus(`現在のトークンはまだ有効です（残り: ${expiryInfo.expiresIn}）`, 'info');
+        } else {
+          showStatusWithDetails('❌ 手動更新が必要です', 'error', `
+            <div class="status-detail-row"><span class="status-detail-label">現在の状態:</span><span class="status-detail-value">アクセストークンが失効しています</span></div>
+            <div class="status-detail-row"><span class="status-detail-label">GitHub Pages:</span><span class="status-detail-value">静的サイトでは Box のトークン自動更新はできません</span></div>
+            <div class="status-detail-row"><span class="status-detail-label">対処:</span><span class="status-detail-value">Box Developer Console で新しい Developer Token を発行して貼り直してください</span></div>
+          `);
+        }
+      } catch (err) {
+        showStatus(`トークン更新に失敗しました: ${err.message}`, 'error');
+      } finally {
+        refreshTokenBtn.disabled = false;
       }
     }
 
@@ -366,13 +571,7 @@
 
         // ユーザー情報を取得
         const userUrl = 'https://api.box.com/2.0/users/me?fields=id,name,email,login';
-        const userRes = await fetch(userUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-          }
-        });
+        const userRes = await boxApiFetch(userUrl, { method: 'GET' });
 
         if (!userRes.ok) {
           const text = await userRes.text();
@@ -383,13 +582,7 @@
 
         // フォルダ情報を取得
         const folderUrl = `https://api.box.com/2.0/folders/${encodeURIComponent(folderId)}?fields=id,name`;
-        const folderRes = await fetch(folderUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-          }
-        });
+        const folderRes = await boxApiFetch(folderUrl, { method: 'GET' });
 
         if (!folderRes.ok) {
           throw new Error(`フォルダID ${folderId} が見つかりません`);
@@ -494,8 +687,10 @@
     }
 
     async function goToShareLinksWithFolderContents(folderId, folderName) {
-      const token = tokenEl.value.trim();
-      if (!token) {
+      let token;
+      try {
+        token = await acquireToken();
+      } catch (err) {
         showStatus('アクセストークンを入力してください。', 'error');
         return;
       }
@@ -517,10 +712,7 @@
         const url = new URL(`https://api.box.com/2.0/folders/${encodeURIComponent(folderId)}/items`);
         url.searchParams.set('limit', '1000');
         url.searchParams.set('fields', 'name,type,id');
-        const res = await fetch(url.toString(), {
-          method: 'GET',
-          headers: {'Authorization': `Bearer ${token}`, 'Accept': 'application/json'}
-        });
+        const res = await boxApiFetch(url.toString(), { method: 'GET' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const entries = data.entries || [];
@@ -647,14 +839,13 @@
     }
 
     async function runSearch() {
-      let token;
       const query = searchQueryEl.value.trim();
       const type = searchTypeEl.value;
       const folderId = folderIdEl.value.trim();
       const useFolderScope = useFolderScopeEl.checked && folderId !== '';
 
       try {
-        token = await acquireToken();
+        await acquireToken();
       } catch (err) {
         setSearchStatus(err.message, 'error');
         return;
@@ -675,12 +866,8 @@
       if (useFolderScope && folderId !== '0') params.set('ancestor_folder_ids', folderId);
 
       try {
-        const res = await fetch(`https://api.box.com/2.0/search?${params.toString()}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-          }
+        const res = await boxApiFetch(`https://api.box.com/2.0/search?${params.toString()}`, {
+          method: 'GET'
         });
 
         if (!res.ok) {
@@ -706,7 +893,14 @@
 
     // 入力時に自動保存
     tokenEl.addEventListener('input', saveSettings);
+    oauthRefreshTokenEl.addEventListener('input', saveSettings);
+    oauthClientIdEl.addEventListener('input', saveSettings);
+    oauthClientSecretEl.addEventListener('input', saveSettings);
     folderIdEl.addEventListener('input', saveSettings);
+
+    // トークン更新ボタン
+    refreshTokenBtn.addEventListener('click', refreshTokenManually);
+    oauthRefreshBtn.addEventListener('click', refreshTokenViaOAuthManually);
 
     // 疎通確認ボタン
     testConnectionBtn.addEventListener('click', testConnection);
