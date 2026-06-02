@@ -341,7 +341,7 @@
 
       let hint = 'トークン/権限/対象フォルダアクセス権を確認してください。';
       if (code === 'cors_origin_not_whitelisted') {
-        hint = `CORS未許可です。Box Developer Console の CORS Domains に ${location.hostname}（必要に応じて ${origin}）を追加し、保存後に数分待って再試行してください。`;
+        hint = `CORS未許可です。Box Developer Console の CORS Domains に ${origin} を追加し、保存後に数分待って再試行してください（形式は https://ドメイン、末尾スラッシュ/パスなし）。`;
       }
       if (status === 401) {
         hint = 'アクセストークン失効の可能性があります。♻️ OAuth更新を実行してください。';
