@@ -299,6 +299,39 @@
       `;
     }
 
+    async function readErrorDetails(res) {
+      const text = await res.text();
+      if (!text) return { text: '', json: null };
+      try {
+        return { text, json: JSON.parse(text) };
+      } catch {
+        return { text, json: null };
+      }
+    }
+
+    function buildBoxApiErrorHelpHtml(label, status, details) {
+      const json = details?.json || {};
+      const code = json.code || json.error || '-';
+      const message = json.message || json.error_description || details?.text || '-';
+
+      let hint = 'トークン/権限/対象フォルダアクセス権を確認してください。';
+      if (status === 401) {
+        hint = 'アクセストークン失効の可能性があります。♻️ OAuth更新を実行してください。';
+      } else if (status === 403) {
+        hint = 'アプリのスコープ不足、管理者承認未完了、または対象フォルダへのアクセス権不足の可能性があります。';
+      } else if (status === 404) {
+        hint = 'フォルダIDが誤っている可能性があります。';
+      }
+
+      return `
+        <div class="status-detail-row"><span class="status-detail-label">失敗API:</span><span class="status-detail-value">${label}</span></div>
+        <div class="status-detail-row"><span class="status-detail-label">HTTP:</span><span class="status-detail-value">${status}</span></div>
+        <div class="status-detail-row"><span class="status-detail-label">Box code:</span><span class="status-detail-value">${code}</span></div>
+        <div class="status-detail-row"><span class="status-detail-label">Box message:</span><span class="status-detail-value">${message}</span></div>
+        <div class="status-detail-row"><span class="status-detail-label">対処:</span><span class="status-detail-value">${hint}</span></div>
+      `;
+    }
+
     function isFailedToFetchError(err) {
       if (!err) return false;
       const message = String(err.message || '');
@@ -574,8 +607,13 @@
         const userRes = await boxApiFetch(userUrl, { method: 'GET' });
 
         if (!userRes.ok) {
-          const text = await userRes.text();
-          throw new Error(`HTTP ${userRes.status} - トークンが無効またはアクセス権限がありません`);
+          const details = await readErrorDetails(userRes);
+          showStatusWithDetails(
+            `❌ 疎通失敗: HTTP ${userRes.status}`,
+            'error',
+            buildBoxApiErrorHelpHtml('GET /2.0/users/me', userRes.status, details)
+          );
+          return;
         }
 
         const userData = await userRes.json();
@@ -585,7 +623,13 @@
         const folderRes = await boxApiFetch(folderUrl, { method: 'GET' });
 
         if (!folderRes.ok) {
-          throw new Error(`フォルダID ${folderId} が見つかりません`);
+          const details = await readErrorDetails(folderRes);
+          showStatusWithDetails(
+            `❌ 疎通失敗: HTTP ${folderRes.status}`,
+            'error',
+            buildBoxApiErrorHelpHtml(`GET /2.0/folders/${folderId}`, folderRes.status, details)
+          );
+          return;
         }
 
         const folderData = await folderRes.json();
